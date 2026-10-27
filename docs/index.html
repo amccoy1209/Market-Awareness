@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market Awareness</title>
+  <meta name="description" content="Credit, debt and economic signals that warn of deleveraging or a downturn.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <h1>Market Awareness</h1>
+      <p class="sub">Credit and debt stress signals, checked daily from Federal Reserve and FRED data.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="verdict" class="verdict" aria-live="polite">
+      <p class="muted">Loading the latest data…</p>
+    </section>
+
+    <section id="categories" class="categories"></section>
+
+    <section class="panel">
+      <h2>Upcoming data releases</h2>
+      <p class="muted small">Scheduled releases for the series this app tracks, over the next 45 days.</p>
+      <ol id="calendar" class="calendar"></ol>
+    </section>
+
+    <section class="panel how">
+      <h2>How to read this</h2>
+      <ul>
+        <li>Each indicator is scored <span class="dot green"></span> green, <span class="dot yellow"></span> yellow or <span class="dot red"></span> red against fixed thresholds (shown on each card).</li>
+        <li>Indicators are grouped into six areas. An area turns red when most of its signals are red.</li>
+        <li><strong>One red signal is noise. A cluster is the warning.</strong> The overall verdict moves to <em>Warning</em> when two or more areas are red at once, and to <em>High risk</em> at four or more.</li>
+        <li>This follows Ray Dalio's debt-cycle framework: deleveraging shows up as tighter credit, rising debt-service burdens, slowing credit growth relative to income and broadening delinquencies, and is then confirmed by weaker spending and jobs.</li>
+        <li>This is an educational tool, not investment advice.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="wrap muted small">
+    <p id="updated"></p>
+    <p>Data: <a href="https://fred.stlouisfed.org/">FRED, Federal Reserve Bank of St. Louis</a>. This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
