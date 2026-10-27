@@ -39,16 +39,16 @@ class Indicator:
 INDICATORS = [
     # 1. Credit availability (Fed Senior Loan Officer Survey, quarterly)
     Indicator("sloos_ci", "Banks tightening business loan standards", "DRTSCILM",
-              "credit_availability", "level", "% of banks (net)", 10, 30, True, 200,
+              "credit_availability", "level", "% of banks (net)", 10, 30, True, 300,
               "Net share of banks tightening standards on loans to large and mid-size firms. "
               "Readings above ~30% have preceded most recessions."),
     Indicator("sloos_cards", "Banks tightening credit card standards", "DRTSCLCC",
-              "credit_availability", "level", "% of banks (net)", 10, 25, True, 200,
+              "credit_availability", "level", "% of banks (net)", 10, 25, True, 300,
               "Net share of banks tightening standards on credit cards: an early read on household credit access."),
 
     # 2. Debt-service pressure
     Indicator("household_dsr", "Household debt service ratio (1-yr change)", "TDSP",
-              "debt_service", "change_1y", "pts of income", 0.2, 0.5, True, 270,
+              "debt_service", "change_1y", "pts of income", 0.2, 0.5, True, 300,
               "Required household debt payments as a share of disposable income. A sustained rise "
               "means debt is squeezing budgets."),
 
@@ -73,35 +73,35 @@ INDICATORS = [
               "credit_growth", "yoy_gap", "pts", 0.0, -4.0, False, 200,
               "When credit grows slower than incomes, the economy is paying debt down relative to income.",
               compare_series="GDP"),
-    Indicator("private_debt_gdp", "Private debt to GDP (1-yr change)", "CRDQUSAPABIS",
+    Indicator("private_debt_gdp", "Private debt to GDP (1-yr change)", "QUSPAM770A",
               "credit_growth", "change_1y", "pts of GDP", -0.5, -3.0, False, 400,
               "BIS measure of private non-financial debt relative to GDP. A falling ratio means "
               "deleveraging is underway (lags by a few quarters)."),
 
     # 5. Delinquencies (quarterly)
     Indicator("card_delinq", "Credit card delinquency rate (1-yr change)", "DRCCLACBS",
-              "delinquencies", "change_1y", "pts", 0.2, 0.5, True, 200,
+              "delinquencies", "change_1y", "pts", 0.2, 0.5, True, 300,
               "Change in the share of credit card balances 30+ days past due."),
     Indicator("all_loan_delinq", "All-loan delinquency rate (1-yr change)", "DRALACBS",
-              "delinquencies", "change_1y", "pts", 0.1, 0.3, True, 200,
+              "delinquencies", "change_1y", "pts", 0.1, 0.3, True, 300,
               "Change in the delinquency rate across all bank loans: shows whether stress is broadening."),
     Indicator("cre_delinq", "Commercial real estate delinquency (1-yr change)", "DRCRELEXFACBS",
-              "delinquencies", "change_1y", "pts", 0.2, 0.5, True, 200,
+              "delinquencies", "change_1y", "pts", 0.2, 0.5, True, 300,
               "Change in delinquencies on commercial real estate loans (excluding farmland)."),
 
     # 6. Spending, income & jobs
     Indicator("sahm", "Sahm rule recession indicator", "SAHMREALTIME",
-              "real_economy", "level", "pts", 0.3, 0.5, True, 60,
+              "real_economy", "level", "pts", 0.3, 0.5, True, 75,
               "Rise in the 3-month average unemployment rate vs. its prior-year low. 0.5+ has marked "
               "the start of every recession since 1970."),
     Indicator("payrolls", "Job growth (3-month average)", "PAYEMS",
-              "real_economy", "avg_change_3", "thousand jobs/mo", 75, 0, False, 60,
+              "real_economy", "avg_change_3", "thousand jobs/mo", 75, 0, False, 75,
               "Average monthly change in nonfarm payrolls over the last three months."),
     Indicator("real_income", "Real disposable income (1-yr)", "DSPIC96",
-              "real_economy", "yoy_pct", "%", 1.5, 0.0, False, 75,
+              "real_economy", "yoy_pct", "%", 1.5, 0.0, False, 100,
               "Inflation-adjusted after-tax income growth. Falling income makes debt harder to carry."),
     Indicator("real_spending", "Real consumer spending (1-yr)", "PCEC96",
-              "real_economy", "yoy_pct", "%", 1.5, 0.0, False, 75,
+              "real_economy", "yoy_pct", "%", 1.5, 0.0, False, 100,
               "Inflation-adjusted consumer spending growth. Cutbacks confirm debt stress is biting."),
     Indicator("yield_curve", "Yield curve (10-yr minus 3-month)", "T10Y3M",
               "real_economy", "level", "pts", 0.5, 0.0, False, 10,

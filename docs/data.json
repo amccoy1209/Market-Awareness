@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-27T23:40:37+00:00",
+ "generated_at": "2026-10-27T23:41:59+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -2920,107 +2920,107 @@
      "id": "private_debt_gdp",
      "name": "Private debt to GDP (1-yr change)",
      "category": "credit_growth",
-     "series": "CRDQUSAPABIS",
+     "series": "QUSPAM770A",
      "series_title": "Total Credit to Private Non-Financial Sector, Adjusted for Breaks, for United States",
      "frequency": "Quarterly, End of Quarter",
-     "units": "Billions of US Dollars",
+     "units": "Percentage of GDP",
      "metric": "change_1y",
      "unit": "pts of GDP",
-     "value": 1388.977,
-     "latest_level": 43143.826,
-     "status": "green",
+     "value": -2.2,
+     "latest_level": 140.3,
+     "status": "yellow",
      "as_of": "2025-10-01",
      "stale": false,
-     "last_updated": "2026-06-15 13:11:37-05",
+     "last_updated": "2026-06-15 13:05:03-05",
      "next_release": null,
      "release_name": "Credit to Non-Financial Sector",
      "thresholds": "Yellow at -0.5 or lower, red at -3 or lower",
      "why": "BIS measure of private non-financial debt relative to GDP. A falling ratio means deleveraging is underway (lags by a few quarters).",
-     "source_url": "https://fred.stlouisfed.org/series/CRDQUSAPABIS",
+     "source_url": "https://fred.stlouisfed.org/series/QUSPAM770A",
      "history": [
       [
        "2020-10-01",
-       35078.256
+       164.1
       ],
       [
        "2021-01-01",
-       35521.518
+       164.4
       ],
       [
        "2021-04-01",
-       36501.184
+       162.4
       ],
       [
        "2021-07-01",
-       37020.106
+       160.6
       ],
       [
        "2021-10-01",
-       37789.75
+       159.3
       ],
       [
        "2022-01-01",
-       38500.396
+       158.0
       ],
       [
        "2022-04-01",
-       39161.661
+       156.8
       ],
       [
        "2022-07-01",
-       39631.13
+       155.0
       ],
       [
        "2022-10-01",
-       39978.418
+       153.4
       ],
       [
        "2023-01-01",
-       40258.212
+       151.7
       ],
       [
        "2023-04-01",
-       40466.661
+       150.1
       ],
       [
        "2023-07-01",
-       40677.593
+       148.5
       ],
       [
        "2023-10-01",
-       40901.485
+       147.1
       ],
       [
        "2024-01-01",
-       41167.637
+       146.1
       ],
       [
        "2024-04-01",
-       41498.171
+       145.2
       ],
       [
        "2024-07-01",
-       41842.393
+       144.5
       ],
       [
        "2024-10-01",
-       41754.849
+       142.5
       ],
       [
        "2025-01-01",
-       41955.413
+       141.6
       ],
       [
        "2025-04-01",
-       42258.354
+       141.0
       ],
       [
        "2025-07-01",
-       42687.286
+       140.6
       ],
       [
        "2025-10-01",
-       43143.826
+       140.3
       ]
      ]
     }
@@ -3046,7 +3046,7 @@
      "latest_level": 2.85,
      "status": "green",
      "as_of": "2026-04-01",
-     "stale": true,
+     "stale": false,
      "last_updated": "2026-08-25 14:17:54-05",
      "next_release": null,
      "release_name": "Charge-Off and Delinquency Rates on Loans and Leases at Commercial Banks",
@@ -3162,7 +3162,7 @@
      "latest_level": 1.42,
      "status": "green",
      "as_of": "2026-04-01",
-     "stale": true,
+     "stale": false,
      "last_updated": "2026-08-25 14:17:45-05",
      "next_release": null,
      "release_name": "Charge-Off and Delinquency Rates on Loans and Leases at Commercial Banks",
@@ -3278,7 +3278,7 @@
      "latest_level": 1.53,
      "status": "green",
      "as_of": "2026-04-01",
-     "stale": true,
+     "stale": false,
      "last_updated": "2026-08-25 14:17:38-05",
      "next_release": null,
      "release_name": "Charge-Off and Delinquency Rates on Loans and Leases at Commercial Banks",
@@ -4022,7 +4022,7 @@
      "latest_level": 18410.5,
      "status": "yellow",
      "as_of": "2026-08-01",
-     "stale": true,
+     "stale": false,
      "last_updated": "2026-09-30 07:43:40-05",
      "next_release": "2026-10-29",
      "release_name": "Personal Income and Outlays",
@@ -4330,7 +4330,7 @@
      "latest_level": 16955.3,
      "status": "green",
      "as_of": "2026-08-01",
-     "stale": true,
+     "stale": false,
      "last_updated": "2026-09-30 07:43:31-05",
      "next_release": "2026-10-29",
      "release_name": "Personal Income and Outlays",

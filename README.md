@@ -14,7 +14,7 @@ Based on Ray Dalio's debt-cycle framework, one red signal is treated as noise an
 | Credit availability | Banks tightening business loans (`DRTSCILM`), credit cards (`DRTSCLCC`) | Quarterly (Fed SLOOS) |
 | Debt-service pressure | Household debt service ratio, 1-yr change (`TDSP`) | Quarterly |
 | Credit spreads & conditions | High-yield spread (`BAMLH0A0HYM2`), investment-grade spread (`BAMLC0A0CM`), Chicago Fed NFCI (`NFCI`) | Daily / weekly |
-| Credit growth vs. income | Bank loan growth (`TOTLL`), loan growth minus nominal GDP growth (`TOTLL` vs `GDP`), private debt/GDP (`CRDQUSAPABIS`) | Weekly / quarterly |
+| Credit growth vs. income | Bank loan growth (`TOTLL`), loan growth minus nominal GDP growth (`TOTLL` vs `GDP`), private debt/GDP (`QUSPAM770A`) | Weekly / quarterly |
 | Delinquencies | Credit card (`DRCCLACBS`), all loans (`DRALACBS`), commercial real estate (`DRCRELEXFACBS`) | Quarterly |
 | Spending, income & jobs | Sahm rule (`SAHMREALTIME`), payrolls (`PAYEMS`), real disposable income (`DSPIC96`), real spending (`PCEC96`), yield curve (`T10Y3M`) | Daily / monthly |
 
