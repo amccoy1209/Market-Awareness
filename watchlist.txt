@@ -16,7 +16,6 @@ COST    # Costco
 MSFT    # Microsoft
 JNJ     # Johnson & Johnson
 PG      # Procter & Gamble
-HSY     # Hershey
 CL      # Colgate-Palmolive
 ADP     # Automatic Data Processing
 SPGI    # S&P Global
