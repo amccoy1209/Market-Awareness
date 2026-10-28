@@ -1,0 +1,30 @@
+# Companies to evaluate with Buffett/Munger checks. One US ticker per line; text after # is ignored.
+# Edit this file on GitHub (pencil icon) to add or remove companies. Changes show up after the next daily run.
+
+# Berkshire Hathaway holdings and past holdings
+AAPL    # Apple
+KO      # Coca-Cola
+AXP     # American Express
+MCO     # Moody's
+OXY     # Occidental Petroleum
+CVX     # Chevron
+KHC     # Kraft Heinz
+DVA     # DaVita
+V       # Visa
+MA      # Mastercard
+
+# Munger's picks and classic "quality" businesses
+COST    # Costco
+MSFT    # Microsoft
+GOOGL   # Alphabet
+JNJ     # Johnson & Johnson
+PG      # Procter & Gamble
+PEP     # PepsiCo
+MCD     # McDonald's
+HSY     # Hershey
+CL      # Colgate-Palmolive
+WMT     # Walmart
+ADP     # Automatic Data Processing
+SPGI    # S&P Global
+ORLY    # O'Reilly Automotive
+AZO     # AutoZone
