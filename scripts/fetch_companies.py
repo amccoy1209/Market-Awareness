@@ -28,7 +28,8 @@ from value_rules import RULES, evaluate
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "companies.json"
 WATCHLIST = ROOT / "watchlist.txt"
-SEC_UA = os.environ.get("SEC_USER_AGENT") or "Market-Awareness research tool (github.com/amccoy1209/Market-Awareness)"
+# The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
+SEC_UA = os.environ.get("SEC_USER_AGENT") or "Market-Awareness 298371312+amccoy1209@users.noreply.github.com"
 BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 IPO_WINDOW_DAYS = 365
 MAX_IPOS = 200
