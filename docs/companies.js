@@ -12,6 +12,8 @@ const INTRO = {
   watchlist: "Your watchlist. Add or remove companies right here once GitHub is connected, or edit watchlist.txt in the repository.",
   ipos: "US companies that went public in roughly the last 12 months, found from their SEC IPO prospectus filings (SPACs and funds excluded).",
   discover: "",
+  holdings: "Your positions, judged the way Buffett and Munger decide whether to hold or sell. What you paid doesn't change the verdict: "
+    + "the only question is whether you'd buy the business today at this price.",
 };
 const SAMPLE_SIZE = 25;
 
@@ -109,6 +111,17 @@ function row(c) {
 }
 
 function render() {
+  const holdingsTab = state.tab === "holdings";
+  document.getElementById("holdings").hidden = !holdingsTab;
+  document.querySelector(".toolbar").hidden = holdingsTab;
+  document.getElementById("list").hidden = holdingsTab;
+  document.getElementById("count-holdings").textContent = new Set(Holdings.load().map((l) => l.ticker)).size || "";
+  if (holdingsTab) {
+    document.getElementById("tab-intro").textContent = INTRO.holdings;
+    renderHoldings();
+    renderEditor();
+    return;
+  }
   const all = state.data[state.tab] || [];
   const counts = Object.fromEntries(ORDER.map((k) => [k, all.filter((c) => c.verdict === k).length]));
   document.getElementById("filters").innerHTML = [["all", `All (${all.length})`],
@@ -162,6 +175,129 @@ function applyData(data, discovery) {
   const pending = applyPendingEdits();
   render();
   return pending;
+}
+
+// --- My holdings (see holdings.js) -------------------------------------------------
+
+function findCompany(ticker) {
+  return state.data.watchlist.find((c) => c.ticker === ticker)
+    || state.data.ipos.find((c) => c.ticker === ticker)
+    || state.pool.find((c) => c.ticker === ticker);
+}
+
+function setTab(tab, query = "") {
+  state.tab = tab; state.filter = "all"; state.query = query;
+  document.getElementById("search").value = query;
+  for (const t of document.querySelectorAll(".tabs button")) t.setAttribute("aria-selected", t.dataset.tab === tab);
+  render();
+}
+
+function setHoldingsStatus(text, kind = "") {
+  const el = document.getElementById("holdings-status");
+  el.className = `small${kind ? ` status-${kind}` : ""}`;
+  el.textContent = text;
+}
+
+function renderHoldings() {
+  const { money } = Holdings;
+  const list = Holdings.positions(Holdings.load(), findCompany).sort((a, b) => b.weight - a.weight);
+  const buyCandidates = [...new Set([...state.data.watchlist, ...state.pool]
+    .filter((c) => c.verdict === "buy").map((c) => c.ticker))];
+  const ctx = { treasury: state.data.treasury_yield, buyCandidates, today: new Date() };
+
+  const priced = list.filter((p) => p.value != null);
+  const value = priced.reduce((s, p) => s + p.value, 0);
+  const cost = priced.reduce((s, p) => s + p.cost, 0);
+  const gain = value - cost;
+  const signed = (v) => `${v > 0 ? "+" : ""}${money(v)}`;
+  document.getElementById("holdings-summary").innerHTML = list.length ? `
+    <div><small>Market value</small><strong>${money(value)}</strong></div>
+    <div><small>Cost</small><strong>${money(cost)}</strong></div>
+    <div><small>Gain / loss</small><strong class="${gain >= 0 ? "gain" : "loss"}">${signed(gain)}${cost ? ` (${((gain / cost) * 100).toFixed(1)}%)` : ""}</strong></div>
+    <div><small>Positions</small><strong>${list.length}</strong></div>
+    ${priced.length < list.length ? `<p class="small muted">Value and gain leave out ${list.filter((p) => p.value == null).map((p) => esc(p.ticker)).join(", ")}, which ${list.length - priced.length === 1 ? "has" : "have"} no price yet.</p>` : ""}` : "";
+
+  const connected = GitHubWatchlist.connected();
+  document.getElementById("holdings-list").innerHTML = list.length ? list.map((p) => {
+    const a = Holdings.analyze(p, ctx);
+    const c = p.company;
+    const pctGain = p.gain != null && p.cost ? (p.gain / p.cost) * 100 : null;
+    const lots = p.lots.map((l) => {
+      const g = p.price != null ? (p.price - l.price) * l.shares : null;
+      return `<tr><td>${l.date ? esc(l.date) : "—"}</td><td>${l.shares.toLocaleString()}</td><td>${money(l.price)}</td>
+        <td class="${g == null ? "" : g >= 0 ? "gain" : "loss"}">${g == null ? "—" : signed(g)}</td>
+        <td><button class="linklike" data-del-lot="${esc(l.id)}" aria-label="Delete this lot">Delete</button></td></tr>`;
+    }).join("");
+    const where = c && !c.pending ? { watchlist: "watchlist", ipo: "ipos", discovery: "discover" }[c.kind] : null;
+    const action = where
+      ? `<button class="linklike" data-view="${where}" data-ticker="${esc(p.ticker)}">See the full checklist</button>`
+      : c && c.pending ? `<span class="muted small">Being scored now; check back in a few minutes.</span>`
+        : connected ? `<button class="remove" data-score="${esc(p.ticker)}">Score it (adds ${esc(p.ticker)} to your watchlist)</button>`
+          : `<span class="muted small">Connect GitHub on the Watchlist tab to have it scored. Only the ticker becomes public, never your shares or cost.</span>`;
+    return `<details class="company">
+      <summary>
+        <span class="ticker">${esc(p.ticker)}</span>
+        <span class="name">${esc(c && !c.pending ? c.name : "")}</span>
+        <span class="pill ${a.cls}">${esc(a.label)}</span>
+        <span class="nums">
+          <span><small>Value</small>${money(p.value ?? p.cost)}</span>
+          <span><small>Gain</small><span class="${pctGain == null ? "" : pctGain >= 0 ? "gain" : "loss"}">${pctGain == null ? "—" : `${pctGain > 0 ? "+" : ""}${pctGain.toFixed(1)}%`}</span></span>
+          <span class="hide-sm"><small>Weight</small>${p.weight.toFixed(0)}%</span>
+        </span>
+      </summary>
+      <div class="company-body">
+        <p class="verdict-text">${esc(a.text)}</p>
+        <ul class="points">${a.points.map((pt) => `<li class="${pt.kind}">${esc(pt.text)}</li>`).join("")}</ul>
+        <table class="hist"><caption>Your lots${p.price != null ? ` · latest price ${money(p.price)}` : ""}</caption>
+          <thead><tr><th>Bought</th><th>Shares</th><th>Paid</th><th>Gain</th><th></th></tr></thead>
+          <tbody>${lots}</tbody></table>
+        <div class="lot-actions">${action}</div>
+      </div>
+    </details>`;
+  }).join("") : `<p class="muted">No holdings yet. Add a position above: ticker, number of shares and the price you paid per share.</p>`;
+}
+
+function addLot() {
+  const ticker = document.getElementById("lot-ticker").value.trim().toUpperCase().replace(/^\$/, "");
+  const shares = parseFloat(document.getElementById("lot-shares").value);
+  const price = parseFloat(document.getElementById("lot-price").value);
+  const date = document.getElementById("lot-date").value;
+  const lot = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ticker, shares, price, date: date || null };
+  if (!Holdings.valid(lot)) {
+    return setHoldingsStatus("Enter a ticker (like NFLX), a number of shares above 0 and the price you paid per share.", "err");
+  }
+  if (!Holdings.save([...Holdings.load(), lot])) {
+    return setHoldingsStatus("This browser is blocking storage, so holdings can't be saved here.", "err");
+  }
+  for (const id of ["lot-ticker", "lot-shares", "lot-price", "lot-date"]) document.getElementById(id).value = "";
+  setHoldingsStatus(findCompany(ticker) ? `Added ${ticker}.`
+    : `Added ${ticker}. It isn't scored yet; open it below to have it scored.`, "ok");
+  render();
+}
+
+function exportHoldings() {
+  const blob = new Blob([JSON.stringify(Holdings.load(), null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "market-awareness-holdings.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function importHoldings(file) {
+  try {
+    const lots = JSON.parse(await file.text());
+    if (!Array.isArray(lots)) throw new Error();
+    const good = lots.filter(Holdings.valid).map((l) => ({ id: String(l.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+      ticker: l.ticker, shares: l.shares, price: l.price, date: l.date || null }));
+    if (!good.length) throw new Error();
+    if (Holdings.load().length && !confirm(`Replace your current holdings with the ${good.length} lot(s) in this file?`)) return;
+    Holdings.save(good);
+    setHoldingsStatus(`Imported ${good.length} lot(s)${good.length < lots.length ? `; skipped ${lots.length - good.length} invalid` : ""}.`, "ok");
+    render();
+  } catch {
+    setHoldingsStatus("That file isn't a holdings export from this app.", "err");
+  }
 }
 
 // --- Watchlist editing (see github.js) -------------------------------------------
@@ -292,10 +428,31 @@ function removeTicker(t) {
 function bindEvents() {
   document.querySelector(".tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]");
-    if (!b) return;
-    state.tab = b.dataset.tab; state.filter = "all";
-    for (const t of document.querySelectorAll(".tabs button")) t.setAttribute("aria-selected", t === b);
-    render();
+    if (b) setTab(b.dataset.tab, state.query);
+  });
+  document.getElementById("lot-form").addEventListener("submit", (e) => { e.preventDefault(); addLot(); });
+  document.getElementById("export-holdings").addEventListener("click", exportHoldings);
+  document.getElementById("import-holdings").addEventListener("change", (e) => {
+    if (e.target.files[0]) importHoldings(e.target.files[0]);
+    e.target.value = "";
+  });
+  document.getElementById("holdings-list").addEventListener("click", async (e) => {
+    const del = e.target.closest("button[data-del-lot]");
+    const view = e.target.closest("button[data-view]");
+    const score = e.target.closest("button[data-score]");
+    if (del && confirm("Delete this lot from your holdings?")) {
+      Holdings.save(Holdings.load().filter((l) => l.id !== del.dataset.delLot));
+      render();
+    } else if (view) {
+      setTab(view.dataset.view, view.dataset.ticker);
+      document.querySelector("#list details.company")?.setAttribute("open", "");
+    } else if (score) {
+      setHoldingsStatus(`Adding ${score.dataset.score} to your watchlist…`);
+      await addTicker(score.dataset.score);
+      const msg = document.getElementById("editor-status");
+      setHoldingsStatus(msg.textContent, msg.className.includes("err") ? "err" : "ok");
+      render();
+    }
   });
   document.getElementById("filters").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-filter]");
