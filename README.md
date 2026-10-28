@@ -66,6 +66,11 @@ candidate (passes the business checks and trades below its buy-below price) and 
 whose business no longer passes the checklist, or that trades above twice its estimated value at 40+ times earnings.
 Each item links to the company. "Dismiss" hides it until the set of signals changes.
 
+**News check for BUY candidates:** each update also records, for every buy candidate, how far it is below its 52-week
+high and its 6-month change, its SEC 8-K filings from the last 6 months (red flags: restatement, delisting notice,
+cyber incident, impairment, bankruptcy; yellow: restructuring/layoffs, officer departures, auditor change) and recent
+headlines (Google News). The BUY alert shows the most serious warning, and the company's details show the full check.
+
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.
 
