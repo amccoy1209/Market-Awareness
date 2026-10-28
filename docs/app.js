@@ -114,7 +114,8 @@ function renderCalendar(data) {
 
 async function main() {
   try {
-    const res = await fetch("data.json", { cache: "no-store" });
+    // The query string sidesteps GitHub Pages' ~10-minute CDN cache.
+    const res = await fetch(`data.json?t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     renderVerdict(data);

@@ -135,7 +135,9 @@ function render() {
 
 function applyData(data, discovery) {
   const sample = state.data && state.data.discover;
-  state.data = data;
+  state.raw = data;
+  // Work on a copy so pending edits can be overlaid and recomputed without touching the published data.
+  state.data = { ...data, watchlist: [...data.watchlist], errors: [...data.errors] };
   if (discovery === undefined) {
     state.data.discover = sample || [];
   } else {
@@ -157,12 +159,52 @@ function applyData(data, discovery) {
   if (data.treasury_yield != null) document.getElementById("treasury").textContent = ` (now ${data.treasury_yield}%)`;
   document.getElementById("updated").textContent = `Last checked ${new Date(data.generated_at).toLocaleString()}.`
     + (data.errors.length ? ` ${data.errors.length} item(s) couldn't be loaded: ${data.errors.map((e) => e.ticker).join(", ")}.` : "");
+  const pending = applyPendingEdits();
   render();
+  return pending;
 }
 
 // --- Watchlist editing (see github.js) -------------------------------------------
 
 let refreshTimer = null;
+
+// Edits GitHub has accepted but the published data may not show yet (the rescore and site redeploy take a few
+// minutes). Kept in this browser so they survive closing the app.
+const PENDING_KEY = "market-awareness-pending-edits";
+const PENDING_MAX_AGE = 30 * 60 * 1000;
+
+function loadPending() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || []; } catch { return []; }
+}
+
+function savePending(list) {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); } catch { /* storage blocked */ }
+}
+
+const listed = (data, t) => data.watchlist.some((c) => c.ticker === t) || data.errors.some((e) => e.ticker === t);
+
+/** Overlay pending edits on state.data. Returns {open, stale}: edits still waiting, and ones that gave up. */
+function applyPendingEdits() {
+  const open = [], stale = [];
+  for (const p of loadPending()) {
+    if ((p.action === "add") === listed(state.raw, p.ticker)) continue;  // published data shows it now
+    (Date.now() - p.at < PENDING_MAX_AGE ? open : stale).push(p);
+  }
+  savePending(open);
+  for (const p of open) {
+    state.data.watchlist = state.data.watchlist.filter((c) => c.ticker !== p.ticker);
+    state.data.errors = state.data.errors.filter((e) => e.ticker !== p.ticker);
+    if (p.action === "add") {
+      state.data.watchlist.push({ kind: "watchlist", ticker: p.ticker, name: "Scoring…", pending: true, verdict: "no_data",
+        verdict_text: "Being scored now. This page will refresh by itself when the results are ready." });
+    }
+  }
+  if (stale.length) {
+    setStatus(`${stale.map((p) => p.ticker).join(", ")} still hadn't updated after 30 minutes. Check`, "err",
+      { href: GitHubWatchlist.actionsUrl, text: "GitHub Actions" });
+  }
+  return { open, stale };
+}
 
 function watchErrors() {
   const ipoTickers = new Set(state.data.ipos.map((i) => i.ticker));
@@ -196,66 +238,55 @@ function setBusy(busy) {
   for (const b of document.querySelectorAll("#editor button, .remove")) b.disabled = busy;
 }
 
-/** Poll for the rescored data until `isDone(data)` says the edit shows up, then refresh the page's data. */
-function waitForRescore(isDone) {
+/** Poll for newly published data until every pending edit shows up in it. */
+function waitForRescore() {
   clearInterval(refreshTimer);
-  const started = Date.now();
   refreshTimer = setInterval(async () => {
-    if (Date.now() - started > 15 * 60 * 1000) {
-      clearInterval(refreshTimer);
-      setStatus("The rescore is taking longer than usual. You can check its progress on", "err",
-        { href: GitHubWatchlist.actionsUrl, text: "GitHub Actions" });
-      return;
-    }
     try {
-      const data = await getJSON(`companies.json?t=${Date.now()}`);
-      if (isDone(data)) {
+      const data = await getJSON("companies.json");
+      if (data.generated_at === state.raw.generated_at) return;
+      const { open, stale } = applyData(data);
+      if (!open.length) {
         clearInterval(refreshTimer);
-        applyData(data);
-        setStatus("Watchlist updated.", "ok");
+        if (!stale.length) setStatus("Watchlist updated.", "ok");
       }
     } catch { /* site still redeploying; try again */ }
   }, 20000);
 }
 
-async function runEdit(action, doneText, optimistic, isDone) {
+async function runEdit(action, ticker, kind, doneText) {
   setBusy(true);
   setStatus("Saving to GitHub…");
   try {
     if (!(await action())) {
       setStatus("Nothing to change: the watchlist file already had that.");
-      return;
+      return false;
     }
-    optimistic();
-    render();
+    savePending([...loadPending().filter((p) => p.ticker !== ticker), { ticker, action: kind, at: Date.now() }]);
+    applyData(state.raw);
     setStatus(`${doneText} Rescoring now; this page refreshes by itself in about 2–5 minutes.`, "ok");
-    waitForRescore(isDone);
+    waitForRescore();
+    return true;
   } catch (err) {
     setStatus(err.message, "err");
+    return false;
   } finally {
     setBusy(false);
   }
 }
 
-const listed = (data, t) => data.watchlist.some((c) => c.ticker === t) || data.errors.some((e) => e.ticker === t);
-
-function addTicker(raw) {
+async function addTicker(raw) {
   const t = raw.trim().toUpperCase().replace(/^\$/, "");
   if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(t)) return setStatus("Enter a stock ticker, like NVDA or BRK-B.", "err");
   if (listed(state.data, t)) return setStatus(`${t} is already on your watchlist.`, "err");
-  return runEdit(() => GitHubWatchlist.add(t), `Added ${t}.`, () => {
-    state.data.watchlist.push({ kind: "watchlist", ticker: t, name: "Scoring…", pending: true, verdict: "no_data",
-      verdict_text: "Being scored now. This page will refresh by itself when the results are ready." });
+  if (await runEdit(() => GitHubWatchlist.add(t), t, "add", `Added ${t}.`)) {
     document.getElementById("add-ticker").value = "";
-  }, (data) => listed(data, t));
+  }
 }
 
 function removeTicker(t) {
   if (!confirm(`Remove ${t} from your watchlist?`)) return;
-  return runEdit(() => GitHubWatchlist.remove(t), `Removed ${t}.`, () => {
-    state.data.watchlist = state.data.watchlist.filter((c) => c.ticker !== t);
-    state.data.errors = state.data.errors.filter((e) => e.ticker !== t);
-  }, (data) => !listed(data, t));
+  return runEdit(() => GitHubWatchlist.remove(t), t, "remove", `Removed ${t}.`);
 }
 
 function bindEvents() {
@@ -307,10 +338,19 @@ function bindEvents() {
   });
 }
 
-const getJSON = (url) => fetch(url, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+// The query string sidesteps GitHub Pages' ~10-minute CDN cache, so a reopened page sees the latest data.
+const getJSON = (url) => fetch(`${url}?t=${Date.now()}`, { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => null)])
-  .then(([data, discovery]) => { bindEvents(); applyData(data, discovery); })
+  .then(([data, discovery]) => {
+    bindEvents();
+    const { open } = applyData(data, discovery);
+    if (open.length) {
+      setStatus(`Still updating ${open.map((p) => p.ticker).join(", ")}. This page refreshes by itself when the results are ready.`);
+      waitForRescore();
+    }
+  })
   .catch(() => {
     document.getElementById("list").innerHTML =
       `<p>No data yet. Run the “Update market data” GitHub Action to generate <code>companies.json</code>.</p>`;
