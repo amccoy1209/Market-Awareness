@@ -31,6 +31,35 @@
       <button id="shuffle" class="shuffle" hidden>↻ Shuffle 25 new picks</button>
     </div>
 
+    <section id="editor" class="editor" hidden>
+      <div id="editor-connected" hidden>
+        <form id="add-form" class="add-row">
+          <input id="add-ticker" type="text" placeholder="Add a ticker, e.g. NVDA" aria-label="Ticker to add"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10">
+          <button type="submit">Add to watchlist</button>
+        </form>
+        <p class="small muted">Changes save to <a id="file-link" href="#">watchlist.txt</a> and rescore in a few minutes.
+          <button id="disconnect" type="button" class="linklike">Disconnect GitHub</button></p>
+      </div>
+      <details id="editor-connect" hidden>
+        <summary>Add or remove companies from this page</summary>
+        <p class="small">This page edits your watchlist through GitHub, so it needs an access token. Create one just for this:</p>
+        <ol class="small">
+          <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → new fine-grained token</a>.</li>
+          <li>Name it “Market Awareness” and pick an expiration (for example 90 days).</li>
+          <li>Repository access: <strong>Only select repositories</strong> → <strong id="repo-name">Market-Awareness</strong>.</li>
+          <li>Repository permissions: <strong>Contents → Read and write</strong> and <strong>Actions → Read and write</strong>.</li>
+          <li>Generate it, copy the token and paste it here. It's saved only in this browser and only sent to GitHub.</li>
+        </ol>
+        <form id="connect-form" class="add-row">
+          <input id="token" type="password" placeholder="github_pat_…" aria-label="GitHub access token" autocomplete="off">
+          <button type="submit">Connect</button>
+        </form>
+      </details>
+      <p id="editor-status" class="small" role="status" aria-live="polite"></p>
+      <div id="watch-errors"></div>
+    </section>
+
     <section id="list" class="company-list" aria-live="polite">
       <p class="muted">Loading…</p>
     </section>
@@ -53,6 +82,7 @@
     <p>Data: <a href="https://www.sec.gov/edgar">SEC EDGAR</a> financial filings, share prices from Yahoo Finance (Stooq fallback), Treasury yield from FRED. Prices can be delayed. Financials are annual and may lag the latest quarter.</p>
   </footer>
 
+  <script src="github.js"></script>
   <script src="companies.js"></script>
 </body>
 </html>

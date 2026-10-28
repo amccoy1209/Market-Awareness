@@ -9,7 +9,7 @@ const VERDICTS = {
 };
 const ORDER = ["buy", "watch", "too_early", "avoid", "no_data"];
 const INTRO = {
-  watchlist: "Companies from watchlist.txt in the repository. Edit that file on GitHub to add or remove tickers.",
+  watchlist: "Your watchlist. Add or remove companies right here once GitHub is connected, or edit watchlist.txt in the repository.",
   ipos: "US companies that went public in roughly the last 12 months, found from their SEC IPO prospectus filings (SPACs and funds excluded).",
   discover: "",
 };
@@ -71,7 +71,8 @@ function row(c) {
       ${c.industry ? `<span>${esc(c.industry)} · ${esc(c.exchange)}</span>` : ""}
     </div>` : "";
   const score = c.scored ? `${c.passed}/${c.scored} checks` : "";
-  return `<details class="company">
+  const removable = c.kind === "watchlist" && !c.pending && GitHubWatchlist.connected();
+  return `<details class="company${c.pending ? " pending" : ""}">
     <summary>
       <span class="ticker">${esc(c.ticker)}</span>
       <span class="name">${esc(c.name)}</span>
@@ -101,7 +102,8 @@ function row(c) {
       ${history ? `<table class="hist"><caption>Annual results (SEC filings)</caption>
         <thead><tr><th>Year</th><th>Revenue</th><th>Net income</th><th>Free cash flow</th></tr></thead>
         <tbody>${history}</tbody></table>` : ""}
-      <p class="small"><a href="${esc(c.sec_url)}">SEC filings</a> · ${c.years_of_data ?? 0} years of annual data${c.price_source ? ` · price via ${esc(c.price_source)}` : ""}</p>
+      ${removable ? `<p><button class="remove" data-remove="${esc(c.ticker)}">Remove ${esc(c.ticker)} from watchlist</button></p>` : ""}
+      ${c.pending ? "" : `<p class="small"><a href="${esc(c.sec_url)}">SEC filings</a> · ${c.years_of_data ?? 0} years of annual data${c.price_source ? ` · price via ${esc(c.price_source)}` : ""}</p>`}
     </div>
   </details>`;
 }
@@ -127,21 +129,27 @@ function render() {
       : `<p class="muted">No companies match.</p>`;
   document.getElementById("shuffle").hidden = state.tab !== "discover" || state.pool.length <= SAMPLE_SIZE;
   document.getElementById("tab-intro").textContent = INTRO[state.tab];
+  document.getElementById("count-watchlist").textContent = state.data.watchlist.length;
+  renderEditor();
 }
 
-function setup(data, discovery) {
+function applyData(data, discovery) {
+  const sample = state.data && state.data.discover;
   state.data = data;
-  state.pool = discovery ? discovery.candidates : [];
-  shuffleSample();
-  const r = discovery && discovery.rules;
-  INTRO.discover = discovery
-    ? `${SAMPLE_SIZE} random picks from ${state.pool.length} under-the-radar candidates: market value $${r.gem_min_cap / 1e6}M–$${r.gem_max_cap / 1e9}B, `
-      + `revenue growing ${r.gem_min_revenue_growth}%+ a year, and passing the business checks. `
-      + `${discovery.scanned_count.toLocaleString()} of ${discovery.universe.toLocaleString()} NYSE/Nasdaq companies scanned so far (250 a day, rescanned monthly). `
-      + `Buy candidates (below their buy-below price) are listed first.`
-    : "The discovery scan hasn't run yet.";
-  document.getElementById("count-discover").textContent = Math.min(SAMPLE_SIZE, state.pool.length);
-  document.getElementById("count-watchlist").textContent = data.watchlist.length;
+  if (discovery === undefined) {
+    state.data.discover = sample || [];
+  } else {
+    state.pool = discovery ? discovery.candidates : [];
+    shuffleSample();
+    const r = discovery && discovery.rules;
+    INTRO.discover = discovery
+      ? `${SAMPLE_SIZE} random picks from ${state.pool.length} under-the-radar candidates: market value $${r.gem_min_cap / 1e6}M–$${r.gem_max_cap / 1e9}B, `
+        + `revenue growing ${r.gem_min_revenue_growth}%+ a year, and passing the business checks. `
+        + `${discovery.scanned_count.toLocaleString()} of ${discovery.universe.toLocaleString()} NYSE/Nasdaq companies scanned so far (250 a day, rescanned monthly). `
+        + `Buy candidates (below their buy-below price) are listed first.`
+      : "The discovery scan hasn't run yet.";
+    document.getElementById("count-discover").textContent = Math.min(SAMPLE_SIZE, state.pool.length);
+  }
   document.getElementById("count-ipos").textContent = data.ipos.length;
   for (const el of document.querySelectorAll("[data-rule]")) {
     el.textContent = pct(data.rules[el.dataset.rule] * 100, 0);
@@ -149,7 +157,108 @@ function setup(data, discovery) {
   if (data.treasury_yield != null) document.getElementById("treasury").textContent = ` (now ${data.treasury_yield}%)`;
   document.getElementById("updated").textContent = `Last checked ${new Date(data.generated_at).toLocaleString()}.`
     + (data.errors.length ? ` ${data.errors.length} item(s) couldn't be loaded: ${data.errors.map((e) => e.ticker).join(", ")}.` : "");
+  render();
+}
 
+// --- Watchlist editing (see github.js) -------------------------------------------
+
+let refreshTimer = null;
+
+function watchErrors() {
+  const ipoTickers = new Set(state.data.ipos.map((i) => i.ticker));
+  return state.data.errors.filter((e) => e.ticker !== "IPOs" && !ipoTickers.has(e.ticker));
+}
+
+function setStatus(text, kind = "", link = null) {
+  const el = document.getElementById("editor-status");
+  el.className = `small${kind ? ` status-${kind}` : ""}`;
+  el.textContent = text;
+  if (link) {
+    const a = document.createElement("a");
+    a.href = link.href; a.textContent = link.text; a.target = "_blank"; a.rel = "noopener";
+    el.append(" ", a, ".");
+  }
+}
+
+function renderEditor() {
+  const connected = GitHubWatchlist.connected();
+  document.getElementById("editor").hidden = state.tab !== "watchlist";
+  document.getElementById("editor-connected").hidden = !connected;
+  document.getElementById("editor-connect").hidden = connected;
+  document.getElementById("watch-errors").innerHTML = watchErrors().map((e) => `
+    <div class="watch-error status-err">
+      <span>Couldn't score <strong>${esc(e.ticker)}</strong>: ${esc(e.error)}</span>
+      ${connected ? `<button class="remove" data-remove="${esc(e.ticker)}">Remove</button>` : ""}
+    </div>`).join("");
+}
+
+function setBusy(busy) {
+  for (const b of document.querySelectorAll("#editor button, .remove")) b.disabled = busy;
+}
+
+/** Poll for the rescored data until `isDone(data)` says the edit shows up, then refresh the page's data. */
+function waitForRescore(isDone) {
+  clearInterval(refreshTimer);
+  const started = Date.now();
+  refreshTimer = setInterval(async () => {
+    if (Date.now() - started > 15 * 60 * 1000) {
+      clearInterval(refreshTimer);
+      setStatus("The rescore is taking longer than usual. You can check its progress on", "err",
+        { href: GitHubWatchlist.actionsUrl, text: "GitHub Actions" });
+      return;
+    }
+    try {
+      const data = await getJSON(`companies.json?t=${Date.now()}`);
+      if (isDone(data)) {
+        clearInterval(refreshTimer);
+        applyData(data);
+        setStatus("Watchlist updated.", "ok");
+      }
+    } catch { /* site still redeploying; try again */ }
+  }, 20000);
+}
+
+async function runEdit(action, doneText, optimistic, isDone) {
+  setBusy(true);
+  setStatus("Saving to GitHub…");
+  try {
+    if (!(await action())) {
+      setStatus("Nothing to change: the watchlist file already had that.");
+      return;
+    }
+    optimistic();
+    render();
+    setStatus(`${doneText} Rescoring now; this page refreshes by itself in about 2–5 minutes.`, "ok");
+    waitForRescore(isDone);
+  } catch (err) {
+    setStatus(err.message, "err");
+  } finally {
+    setBusy(false);
+  }
+}
+
+const listed = (data, t) => data.watchlist.some((c) => c.ticker === t) || data.errors.some((e) => e.ticker === t);
+
+function addTicker(raw) {
+  const t = raw.trim().toUpperCase().replace(/^\$/, "");
+  if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(t)) return setStatus("Enter a stock ticker, like NVDA or BRK-B.", "err");
+  if (listed(state.data, t)) return setStatus(`${t} is already on your watchlist.`, "err");
+  return runEdit(() => GitHubWatchlist.add(t), `Added ${t}.`, () => {
+    state.data.watchlist.push({ kind: "watchlist", ticker: t, name: "Scoring…", pending: true, verdict: "no_data",
+      verdict_text: "Being scored now. This page will refresh by itself when the results are ready." });
+    document.getElementById("add-ticker").value = "";
+  }, (data) => listed(data, t));
+}
+
+function removeTicker(t) {
+  if (!confirm(`Remove ${t} from your watchlist?`)) return;
+  return runEdit(() => GitHubWatchlist.remove(t), `Removed ${t}.`, () => {
+    state.data.watchlist = state.data.watchlist.filter((c) => c.ticker !== t);
+    state.data.errors = state.data.errors.filter((e) => e.ticker !== t);
+  }, (data) => !listed(data, t));
+}
+
+function bindEvents() {
   document.querySelector(".tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-tab]");
     if (!b) return;
@@ -163,13 +272,45 @@ function setup(data, discovery) {
   });
   document.getElementById("search").addEventListener("input", (e) => { state.query = e.target.value.trim(); render(); });
   document.getElementById("shuffle").addEventListener("click", () => { shuffleSample(); state.filter = "all"; render(); });
-  render();
+
+  document.getElementById("repo-name").textContent = GitHubWatchlist.repo;
+  document.getElementById("file-link").href = GitHubWatchlist.fileUrl;
+  document.getElementById("connect-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("token");
+    if (!input.value.trim()) return;
+    setBusy(true);
+    setStatus("Checking the token with GitHub…");
+    try {
+      await GitHubWatchlist.connect(input.value.trim());
+      input.value = "";
+      setStatus("Connected. You can now add and remove companies.", "ok");
+      render();
+    } catch (err) {
+      setStatus(err.message, "err");
+    } finally {
+      setBusy(false);
+    }
+  });
+  document.getElementById("disconnect").addEventListener("click", () => {
+    GitHubWatchlist.disconnect();
+    setStatus("Disconnected. The token was removed from this browser (you can also delete it on GitHub).");
+    render();
+  });
+  document.getElementById("add-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    addTicker(document.getElementById("add-ticker").value);
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-remove]");
+    if (b) removeTicker(b.dataset.remove);
+  });
 }
 
 const getJSON = (url) => fetch(url, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => null)])
-  .then(([data, discovery]) => setup(data, discovery))
+  .then(([data, discovery]) => { bindEvents(); applyData(data, discovery); })
   .catch(() => {
     document.getElementById("list").innerHTML =
       `<p>No data yet. Run the “Update market data” GitHub Action to generate <code>companies.json</code>.</p>`;

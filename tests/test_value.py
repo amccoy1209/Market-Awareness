@@ -312,5 +312,32 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual([c["ticker"] for c in discovery["candidates"]], ["SMOL"])
 
 
+class WatchlistOnlyTest(EndToEndTest):
+    def test_main(self):
+        """Watchlist-only runs rescore watchlist.txt, keep the previous IPOs and skip discovery."""
+        with tempfile.TemporaryDirectory() as tmp:
+            out, wl, disc = Path(tmp) / "companies.json", Path(tmp) / "watchlist.txt", Path(tmp) / "discovery.json"
+            wl.write_text("GOOD\n")
+            out.write_text(json.dumps({"ipos": [{"ticker": "OLDIPO"}], "watchlist": [{"ticker": "GONE"}],
+                                       "errors": [{"ticker": "OLDIPO", "error": "x"}, {"ticker": "GONE", "error": "y"}]}))
+            seen = []
+
+            def fake_get(url, ua=None, sec=True):
+                seen.append(url)
+                return self.fake_get(url, ua, sec)
+            with mock.patch.object(fetch_companies, "get", fake_get), \
+                    mock.patch.object(fetch_companies, "OUTPUT", out), \
+                    mock.patch.object(fetch_companies, "WATCHLIST", wl), \
+                    mock.patch.object(fetch_companies, "DISCOVERY_OUTPUT", disc), \
+                    mock.patch.dict(os.environ, {"FRED_API_KEY": ""}):
+                fetch_companies.main(watchlist_only=True)
+            data = json.loads(out.read_text())
+        self.assertEqual([c["ticker"] for c in data["watchlist"]], ["GOOD"])
+        self.assertEqual(data["ipos"], [{"ticker": "OLDIPO"}])
+        self.assertEqual(data["errors"], [{"ticker": "OLDIPO", "error": "x"}])
+        self.assertFalse(disc.exists())
+        self.assertFalse(any("form.idx" in u or "exchange" in u for u in seen))
+
+
 if __name__ == "__main__":
     unittest.main()
