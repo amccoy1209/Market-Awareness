@@ -29,7 +29,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "companies.json"
 WATCHLIST = ROOT / "watchlist.txt"
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
-SEC_UA = os.environ.get("SEC_USER_AGENT") or "Market-Awareness 298371312+amccoy1209@users.noreply.github.com"
+# Collapse whitespace so a pasted secret with a stray line break still forms a valid header.
+SEC_UA = " ".join(os.environ.get("SEC_USER_AGENT", "").split()) or "Market-Awareness 298371312+amccoy1209@users.noreply.github.com"
 PRICE_UA = "Market-Awareness/1.0 (+https://github.com/amccoy1209/Market-Awareness)"
 IPO_WINDOW_DAYS = 365
 MAX_IPOS = 200
