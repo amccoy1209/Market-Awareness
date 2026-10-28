@@ -34,8 +34,12 @@ annual results from SEC filings:
 - **10 business checks:** consistent profits, return on equity ≥ 15%, gross margin ≥ 40%, net margin ≥ 10%,
   positive free cash flow, earnings backed by cash, long-term debt ≤ 4 years of earnings, capex ≤ 50% of earnings,
   EPS growth ≥ 5% a year and share dilution ≤ 1% a year
-- **Intrinsic value:** 10-year discounted owner earnings (free cash flow) at 10%, then a 25% margin of safety
-  gives the **buy-below price**
+- **Intrinsic value:** 10-year discounted owner earnings, then a 25% margin of safety gives the **buy-below price**.
+  Owner earnings = the median free-cash-flow margin of the last 3 years × the latest revenue. Growth = the average of
+  past revenue and EPS growth (0–15%), then 3% a year after year 10. The discount rate is the 10-year Treasury yield
+  plus 4% (minimum 8%).
+- **Price assumes:** the same math run backwards, giving the yearly growth today's price needs. Compare it with the
+  company's past growth.
 - **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)
 
 It covers two lists:

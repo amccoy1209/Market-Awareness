@@ -17,9 +17,11 @@ RULES = {
     "max_capex_share": 50.0,      # capex as % of net income
     "min_growth": 5.0,            # per-share earnings growth, % a year
     "max_dilution": 1.0,          # share count growth, % a year
-    "discount_rate": 0.10,        # required annual return for intrinsic value
+    "equity_risk_premium": 0.04,  # required return = 10-year Treasury yield + this premium...
+    "min_discount_rate": 0.08,    # ...but never below this
+    "default_discount_rate": 0.09,  # used when the Treasury yield is unavailable
     "terminal_growth": 0.03,      # growth after year 10
-    "max_growth": 0.12,           # cap on the growth assumed for years 1-10
+    "max_growth": 0.15,           # cap on the growth assumed for years 1-10
     "margin_of_safety": 0.25,     # buy-below discount to intrinsic value
     "pass_share": 0.70,           # share of quality checks that must pass
     "lockup_days": 180,           # typical IPO insider lock-up
@@ -159,28 +161,74 @@ def growth_rate(years, key):
     return _cagr(pts[0][1], pts[-1][1], span)
 
 
-def intrinsic_value(years, r=RULES):
-    """10-year discounted owner earnings (free cash flow) per share, plus a terminal value."""
-    recent = [y["fcf"] for y in years[-3:] if y.get("fcf") is not None]
-    shares = years[-1].get("shares")
-    if not recent or not shares:
-        return None
-    owner_earnings = sum(recent) / len(recent)
-    if owner_earnings <= 0:
-        return None
-    growth_rates = []
+def discount_rate_for(treasury_yield, r=RULES):
+    """Required return: the 10-year Treasury yield plus an equity premium, with a floor."""
+    if treasury_yield is None:
+        return r["default_discount_rate"]
+    return max(r["min_discount_rate"], treasury_yield / 100 + r["equity_risk_premium"])
+
+
+def present_value(owner_earnings, growth, discount_rate, r=RULES):
+    """Value of owner earnings growing at `growth` for 10 years, then at the terminal rate forever."""
+    d, tg = discount_rate, r["terminal_growth"]
+    value, cash = 0.0, owner_earnings
+    for t in range(1, 11):
+        cash *= 1 + growth
+        value += cash / (1 + d) ** t
+    return value + cash * (1 + tg) / (d - tg) / (1 + d) ** 10
+
+
+def owner_earnings(years):
+    """Typical free cash flow margin of the last 3 years applied to the latest revenue.
+
+    Using the median margin smooths one-off swings (a large tax payment, an unusual capex year), and applying it to
+    the latest revenue keeps growing companies from being valued on stale, smaller cash flows. Falls back to the
+    plain 3-year average of free cash flow when revenue isn't reported.
+    """
+    recent = years[-3:]
+    margins = sorted(y["fcf"] / y["revenue"] for y in recent if y.get("fcf") is not None and y.get("revenue"))
+    if margins and years[-1].get("revenue"):
+        mid = len(margins) // 2
+        median = margins[mid] if len(margins) % 2 else (margins[mid - 1] + margins[mid]) / 2
+        return median * years[-1]["revenue"]
+    fcf = [y["fcf"] for y in recent if y.get("fcf") is not None]
+    return sum(fcf) / len(fcf) if fcf else None
+
+
+def growth_estimate(years, r=RULES):
+    """Average of past revenue and per-share earnings growth, between 0 and the cap (as a fraction)."""
+    rates = []
     for key in ("revenue", "eps"):
         if len([y for y in years[-10:] if y.get(key) is not None]) >= 3:
             g = growth_rate(years, key)
-            growth_rates.append(0.0 if g is None else g / 100)
-    g = max(0.0, min(min(growth_rates) if growth_rates else 0.0, r["max_growth"]))
-    d, tg = r["discount_rate"], r["terminal_growth"]
-    value, cash = 0.0, owner_earnings
-    for t in range(1, 11):
-        cash *= 1 + g
-        value += cash / (1 + d) ** t
-    value += cash * (1 + tg) / (d - tg) / (1 + d) ** 10
-    return {"per_share": value / shares, "owner_earnings": owner_earnings, "growth_used": g * 100}
+            rates.append(0.0 if g is None else g / 100)  # None: a loss at one end, so assume no growth
+    return max(0.0, min(sum(rates) / len(rates) if rates else 0.0, r["max_growth"]))
+
+
+def intrinsic_value(years, discount_rate=None, r=RULES):
+    """10-year discounted owner earnings per share, plus a terminal value."""
+    shares = years[-1].get("shares")
+    oe = owner_earnings(years)
+    if not oe or oe <= 0 or not shares:
+        return None
+    d = r["default_discount_rate"] if discount_rate is None else discount_rate
+    g = growth_estimate(years, r)
+    return {"per_share": present_value(oe, g, d, r) / shares, "owner_earnings": oe,
+            "growth_used": g * 100, "discount_rate": d * 100}
+
+
+def implied_growth(price, owner_earnings_per_share, discount_rate, r=RULES):
+    """Growth a year for 10 years that today's price assumes (reverse DCF), in %, or None if out of range."""
+    if not price or not owner_earnings_per_share or owner_earnings_per_share <= 0:
+        return None
+    lo, hi = -0.20, 0.60
+    if price < present_value(owner_earnings_per_share, lo, discount_rate, r) \
+            or price > present_value(owner_earnings_per_share, hi, discount_rate, r):
+        return None
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if present_value(owner_earnings_per_share, mid, discount_rate, r) < price else (lo, mid)
+    return (lo + hi) / 2 * 100
 
 
 def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, per_share_ok=True):
@@ -205,7 +253,8 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
     latest = years[-1]
     checks = quality_checks(years, r)
     result["checks"] = checks
-    iv = intrinsic_value(years, r) if per_share_ok else None
+    discount = discount_rate_for(treasury_yield, r)
+    iv = intrinsic_value(years, discount, r) if per_share_ok else None
     shares = latest.get("shares") if per_share_ok else None
     if not per_share_ok:
         result["notes"].append("Foreign filer: US shares usually trade as ADRs representing a different number of "
@@ -214,7 +263,7 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
     if iv:
         val.update(intrinsic_value=round(iv["per_share"], 2),
                    buy_below=round(iv["per_share"] * (1 - r["margin_of_safety"]), 2),
-                   growth_used=round(iv["growth_used"], 1))
+                   growth_used=round(iv["growth_used"], 1), discount_rate=round(iv["discount_rate"], 1))
     revenue_growth = growth_rate(years, "revenue")
     if revenue_growth is not None:
         val["revenue_growth"] = round(revenue_growth, 1)
@@ -226,6 +275,9 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
             val["pe"] = round(price / latest["eps"], 1)
         if iv and shares:
             val["owner_earnings_yield"] = round(iv["owner_earnings"] / shares / price * 100, 2)
+            implied = implied_growth(price, iv["owner_earnings"] / shares, discount, r)
+            if implied is not None:
+                val["implied_growth"] = round(implied, 1)
     if treasury_yield is not None:
         val["treasury_yield"] = treasury_yield
 

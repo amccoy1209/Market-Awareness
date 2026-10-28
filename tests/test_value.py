@@ -10,7 +10,8 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import fetch_companies  # noqa: E402
-from value_rules import FAIL, NA, PASS, evaluate, intrinsic_value, is_hidden_gem, quality_checks  # noqa: E402
+from value_rules import (FAIL, NA, PASS, discount_rate_for, evaluate, growth_estimate, implied_growth,  # noqa: E402
+                         intrinsic_value, is_hidden_gem, owner_earnings, present_value, quality_checks)
 
 
 def year(n, ni=100.0, rev=400.0, gp=240.0, fcf=95.0, capex=20.0, equity=500.0, debt=200.0, eps=None, shares=100.0):
@@ -69,7 +70,31 @@ class ValuationTests(unittest.TestCase):
         self.assertGreater(fast, slow)
 
     def test_growth_is_capped(self):
-        self.assertLessEqual(intrinsic_value(compounder(growth=0.40))["growth_used"], 12.0)
+        self.assertLessEqual(intrinsic_value(compounder(growth=0.40))["growth_used"], 15.0)
+
+    def test_discount_rate_follows_treasury_with_floor(self):
+        self.assertAlmostEqual(discount_rate_for(5.0), 0.09)
+        self.assertAlmostEqual(discount_rate_for(2.0), 0.08)   # floor
+        self.assertAlmostEqual(discount_rate_for(None), 0.09)  # default
+
+    def test_owner_earnings_uses_median_margin_on_latest_revenue(self):
+        # Margins 20%, 5% (one-off hit), 22% -> median 20% of the latest revenue 500.
+        years = [year(0, rev=400, fcf=80), year(1, rev=450, fcf=22.5), year(2, rev=500, fcf=110)]
+        self.assertAlmostEqual(owner_earnings(years), 100.0)
+
+    def test_owner_earnings_without_revenue_falls_back_to_average(self):
+        years = [dict(year(i, fcf=f), revenue=None) for i, f in enumerate((10, 20, 30))]
+        self.assertAlmostEqual(owner_earnings(years), 20.0)
+
+    def test_growth_averages_revenue_and_eps(self):
+        years = [year(i, rev=100 * 1.10 ** i, ni=100 * 1.02 ** i) for i in range(10)]
+        self.assertAlmostEqual(growth_estimate(years), 0.06, places=3)
+
+    def test_implied_growth_round_trip(self):
+        price = present_value(2.0, 0.07, 0.09)
+        self.assertAlmostEqual(implied_growth(price, 2.0, 0.09), 7.0, places=3)
+        self.assertIsNone(implied_growth(price * 1000, 2.0, 0.09))  # beyond any plausible growth
+        self.assertIsNone(implied_growth(price, -1.0, 0.09))        # no owner earnings
 
     def test_no_value_without_positive_cash_flow(self):
         years = [year(i, fcf=-10) for i in range(5)]
@@ -79,9 +104,12 @@ class ValuationTests(unittest.TestCase):
 class VerdictTests(unittest.TestCase):
     def test_buy_watch_and_avoid(self):
         years = compounder()
-        iv = intrinsic_value(years)["per_share"]
-        self.assertEqual(evaluate(years, iv * 0.5, 4.0)["verdict"], "buy")
-        self.assertEqual(evaluate(years, iv * 1.2, 4.0)["verdict"], "watch")
+        iv = intrinsic_value(years, discount_rate_for(5.0))["per_share"]
+        self.assertEqual(evaluate(years, iv * 0.5, 5.0)["verdict"], "buy")
+        result = evaluate(years, iv * 1.2, 5.0)
+        self.assertEqual(result["verdict"], "watch")
+        self.assertEqual(result["valuation"]["discount_rate"], 9.0)
+        self.assertGreater(result["valuation"]["implied_growth"], result["valuation"]["growth_used"])
         bad = [year(i, ni=(-10 if i % 2 else 10), fcf=-5, gp=50) for i in range(8)]
         self.assertEqual(evaluate(bad, 10, 4.0)["verdict"], "avoid")
 

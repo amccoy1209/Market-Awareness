@@ -103,6 +103,12 @@ const Holdings = (() => {
           + (diff > 100 ? " The estimate is conservative for slow growers, so treat a big gap as \"expensive\", not as a precise number." : ""),
       });
     }
+    if (val.implied_growth != null && val.growth_used != null) {
+      const gap = val.implied_growth - val.growth_used;
+      points.push({ kind: gap > 3 ? "warn" : "good",
+        text: `Today's price assumes ${val.implied_growth}% growth a year for 10 years, against ${val.growth_used}% in the past`
+          + (gap > 3 ? ": the market expects a better future than the company's history." : ": a reasonable bar given its record.") });
+    }
     if (val.owner_earnings_yield != null && ctx.treasury != null && val.owner_earnings_yield < ctx.treasury) {
       points.push({ kind: "warn",
         text: `It yields ${val.owner_earnings_yield}% in owner earnings, less than the ${ctx.treasury}% on 10-year Treasuries, so you're paying for growth that still has to arrive.` });
