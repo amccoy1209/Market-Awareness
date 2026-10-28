@@ -17,7 +17,6 @@ COST    # Costco
 MSFT    # Microsoft
 JNJ     # Johnson & Johnson
 PG      # Procter & Gamble
-PEP     # PepsiCo
 MCD     # McDonald's
 HSY     # Hershey
 CL      # Colgate-Palmolive
