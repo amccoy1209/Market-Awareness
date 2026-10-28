@@ -39,7 +39,10 @@ annual results from SEC filings:
 - **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)
 
 It covers two lists:
-- **Watchlist:** the tickers in `watchlist.txt`. Edit that file on GitHub to change them.
+- **Watchlist:** the tickers in `watchlist.txt`. Add or remove them from the page itself: open
+  "Add or remove companies from this page" on the Watchlist tab and connect a fine-grained GitHub token
+  (this repository only; Contents and Actions read & write). The page commits the change and starts a quick
+  watchlist-only rescore (a few minutes). The token is stored only in that browser. You can also edit the file on GitHub.
 - **Recent IPOs:** found automatically from SEC IPO prospectus filings (form 424B4) in the last 12 months,
   excluding SPACs and funds. Most show "Too early", which matches Buffett's own caution about IPOs.
 

@@ -446,24 +446,8 @@ def build_entry(kind, ticker, cik, name, treasury, today, ipo=None):
     return entry
 
 
-def main():
-    today = date.today()
-    treasury = treasury_10y()
-    tickers = ticker_map()
-    errors, watchlist, ipos = [], [], []
-
-    for t in read_watchlist():
-        if t not in tickers:
-            errors.append({"ticker": t, "error": "Ticker not found in SEC company list"})
-            continue
-        cik, name = tickers[t]
-        print(f"Watchlist {t}")
-        try:
-            watchlist.append(build_entry("watchlist", t, cik, name, treasury, today))
-        except Exception as err:
-            print(f"!! {t}: {err}", file=sys.stderr)
-            errors.append({"ticker": t, "error": str(err)})
-
+def score_ipos(treasury, today, errors):
+    ipos = []
     try:
         found = recent_ipos(today)
     except Exception as err:
@@ -487,6 +471,38 @@ def main():
         except Exception as err:
             print(f"!! {ipo['ticker']}: {err}", file=sys.stderr)
             errors.append({"ticker": ipo["ticker"], "error": str(err)})
+    return ipos
+
+
+def main(watchlist_only=False):
+    """Full daily run, or with watchlist_only just rescore watchlist.txt and keep the last IPO results."""
+    today = date.today()
+    treasury = treasury_10y()
+    tickers = ticker_map()
+    errors, watchlist = [], []
+
+    for t in read_watchlist():
+        if t not in tickers:
+            errors.append({"ticker": t, "error": "Ticker not found in SEC company list"})
+            continue
+        cik, name = tickers[t]
+        print(f"Watchlist {t}")
+        try:
+            watchlist.append(build_entry("watchlist", t, cik, name, treasury, today))
+        except Exception as err:
+            print(f"!! {t}: {err}", file=sys.stderr)
+            errors.append({"ticker": t, "error": str(err)})
+
+    if watchlist_only:
+        try:
+            previous = json.loads(OUTPUT.read_text())
+        except (FileNotFoundError, ValueError):
+            previous = {}
+        ipos = previous.get("ipos", [])
+        ipo_tickers = {i["ticker"] for i in ipos} | {"IPOs"}
+        errors += [e for e in previous.get("errors", []) if e.get("ticker") in ipo_tickers]
+    else:
+        ipos = score_ipos(treasury, today, errors)
 
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -500,6 +516,8 @@ def main():
     print(f"Wrote {OUTPUT}: {len(watchlist)} watchlist companies, {len(ipos)} IPOs, {len(errors)} errors")
     if not watchlist and not ipos:
         sys.exit("No companies could be scored; check network access and SEC_USER_AGENT.")
+    if watchlist_only:
+        return
 
     try:
         discover(treasury, today, exclude=set(read_watchlist()) | {i["ticker"] for i in ipos})
@@ -508,4 +526,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(watchlist_only="--watchlist-only" in sys.argv)
