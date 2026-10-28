@@ -32,6 +32,7 @@ WATCHLIST = ROOT / "watchlist.txt"
 DISCOVERY_OUTPUT = ROOT / "docs" / "discovery.json"
 DISCOVERY_PER_RUN = 250        # companies scanned per daily run, to stay gentle on the SEC
 DISCOVERY_RESCAN_DAYS = 30     # how long before a company is scanned again
+DISCOVERY_VERSION = 2          # bump when scoring logic changes, to rebuild the pool from scratch
 PLAIN_TICKER = re.compile(r"^[A-Z]{1,5}$")  # skips warrants, units and preferred shares
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
 # Collapse whitespace so a pasted secret with a stray line break still forms a valid header.
@@ -58,9 +59,9 @@ DURATION = {
     "capex": ["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment", "us-gaap:PaymentsToAcquireProductiveAssets",
               "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"],
     "eps": ["us-gaap:EarningsPerShareDiluted", "us-gaap:EarningsPerShareBasicAndDiluted",
-            "ifrs-full:DilutedEarningsLossPerShare"],
+            "us-gaap:EarningsPerShareBasic", "ifrs-full:DilutedEarningsLossPerShare"],
     "shares": ["us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding",
-               "ifrs-full:AdjustedWeightedAverageShares"],
+               "us-gaap:WeightedAverageNumberOfSharesOutstandingBasic", "ifrs-full:AdjustedWeightedAverageShares"],
 }
 INSTANT = {
     "equity": ["us-gaap:StockholdersEquity",
@@ -70,6 +71,7 @@ INSTANT = {
              "us-gaap:LongTermDebt", "ifrs-full:NoncurrentPortionOfNoncurrentBorrowings"],
 }
 UNITS = {"eps": "USD/shares", "shares": "shares"}
+SPLIT_TOLERANCE = 0.12  # buybacks between filings blur the exact split ratio
 SPLIT_RATIOS = (2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20, 25, 30, 40, 50)
 
 
@@ -203,14 +205,20 @@ def adjust_for_splits(years):
         if not before or not after:
             continue
         ratio = after / before
-        factor = next((r for r in SPLIT_RATIOS if abs(ratio / r - 1) < 0.06), None)
+        factor = next((r for r in SPLIT_RATIOS if abs(ratio / r - 1) < SPLIT_TOLERANCE), None)
         if factor is None:
-            inverse = next((r for r in SPLIT_RATIOS if abs(ratio * r - 1) < 0.06), None)
+            inverse = next((r for r in SPLIT_RATIOS if abs(ratio * r - 1) < SPLIT_TOLERANCE), None)
             factor = 1 / inverse if inverse else None  # reverse split
         if factor:
             for y in years[:i]:
                 y["shares"] = y["shares"] * factor if y.get("shares") else y.get("shares")
                 y["eps"] = y["eps"] / factor if y.get("eps") is not None else None
+
+
+def foreign_filer(facts):
+    """True if annual results come from 20-F/40-F reports (US shares are usually ADRs with their own ratio)."""
+    return any(f.get("form", "").startswith(("20-F", "40-F"))
+               for tag in DURATION["net_income"] + DURATION["revenue"] for f in _facts_for(facts, tag, "USD"))
 
 
 def ticker_map():
@@ -373,6 +381,8 @@ def discover(treasury, today, exclude):
         previous = json.loads(DISCOVERY_OUTPUT.read_text())
     except (FileNotFoundError, ValueError):
         previous = {}
+    if previous.get("version") != DISCOVERY_VERSION:
+        previous = {}
     scanned = previous.get("scanned", {})
     gems = {g["ticker"]: g for g in previous.get("candidates", [])}
     universe = listed_universe(exclude)
@@ -392,6 +402,7 @@ def discover(treasury, today, exclude):
             entry["scanned"] = today.isoformat()
             gems[t] = entry
     output = {
+        "version": DISCOVERY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "universe": len(universe),
         "scanned_count": sum(1 for t in scanned if t in universe),
@@ -419,7 +430,8 @@ def build_entry(kind, ticker, cik, name, treasury, today, ipo=None):
     facts = company_facts(cik)
     years = annual_table(facts)
     price, first_close, price_source = price_info(ticker, ipo and ipo["ipo_date"])
-    result = evaluate(years, price, treasury, ipo_date=ipo and ipo["ipo_date"], today=today)
+    result = evaluate(years, price, treasury, ipo_date=ipo and ipo["ipo_date"], today=today,
+                      per_share_ok=not foreign_filer(facts))
     entry = {"kind": kind, "ticker": ticker, "name": facts.get("entityName") or name, "cik": cik,
              "price": price, "price_source": price_source,
              "sec_url": f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}",

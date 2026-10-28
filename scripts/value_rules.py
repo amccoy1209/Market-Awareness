@@ -183,8 +183,12 @@ def intrinsic_value(years, r=RULES):
     return {"per_share": value / shares, "owner_earnings": owner_earnings, "growth_used": g * 100}
 
 
-def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
-    """Score one company. Returns checks, valuation numbers and a verdict."""
+def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, per_share_ok=True):
+    """Score one company. Returns checks, valuation numbers and a verdict.
+
+    per_share_ok=False (foreign filers) skips per-share valuation: their US-listed ADRs often
+    represent a different number of shares than the filing reports, so value per share can't be compared to price.
+    """
     today = today or date.today()
     result = {"years_of_data": len(years), "checks": [], "valuation": {}, "notes": []}
     if ipo_date:
@@ -201,8 +205,11 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
     latest = years[-1]
     checks = quality_checks(years, r)
     result["checks"] = checks
-    iv = intrinsic_value(years, r)
-    shares = latest.get("shares")
+    iv = intrinsic_value(years, r) if per_share_ok else None
+    shares = latest.get("shares") if per_share_ok else None
+    if not per_share_ok:
+        result["notes"].append("Foreign filer: US shares usually trade as ADRs representing a different number of "
+                               "shares, so per-share value and P/E aren't shown. Business checks still apply.")
     val = result["valuation"]
     if iv:
         val.update(intrinsic_value=round(iv["per_share"], 2),
@@ -215,7 +222,7 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
         val["price"] = price
         if shares:
             val["market_cap"] = round(price * shares)
-        if latest.get("eps") and latest["eps"] > 0:
+        if per_share_ok and latest.get("eps") and latest["eps"] > 0:
             val["pe"] = round(price / latest["eps"], 1)
         if iv and shares:
             val["owner_earnings_yield"] = round(iv["owner_earnings"] / shares / price * 100, 2)

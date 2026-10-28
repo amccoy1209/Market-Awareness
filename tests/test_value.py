@@ -94,6 +94,13 @@ class VerdictTests(unittest.TestCase):
         years = [year(i, ni=1e-4, fcf=1e-4, rev=4e-4, gp=2.4e-4, debt=0) for i in range(6)]
         self.assertEqual(evaluate(years, 5.0, None)["verdict"], "watch")
 
+    def test_foreign_filer_skips_per_share_value(self):
+        result = evaluate(compounder(), 1.0, 4.0, per_share_ok=False)
+        self.assertEqual(result["verdict"], "watch")
+        self.assertNotIn("buy_below", result["valuation"])
+        self.assertNotIn("market_cap", result["valuation"])
+        self.assertFalse(is_hidden_gem(result))
+
     def test_no_data(self):
         self.assertEqual(evaluate([], None, None)["verdict"], "no_data")
 
@@ -140,6 +147,12 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class SecParsingTests(unittest.TestCase):
+    def test_foreign_filer(self):
+        f20 = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [fact("2025-12-31", 5, "2025-01-01", form="20-F")]}}}}}
+        f10 = {"facts": {"us-gaap": {"NetIncomeLoss": {"units": {"USD": [fact("2025-12-31", 5, "2025-01-01")]}}}}}
+        self.assertTrue(fetch_companies.foreign_filer(f20))
+        self.assertFalse(fetch_companies.foreign_filer(f10))
+
     def test_annual_table_picks_full_years_and_fills_gaps(self):
         facts = {"facts": {"us-gaap": {
             "NetIncomeLoss": {"units": {"USD": [
@@ -172,6 +185,13 @@ class SecParsingTests(unittest.TestCase):
         fetch_companies.adjust_for_splits(years)
         self.assertEqual([y["shares"] for y in years], [400.0] * 5)
         self.assertAlmostEqual(years[0]["eps"], 100 / 400)
+
+    def test_split_blurred_by_buybacks_is_detected(self):
+        # 15-for-1 split, with ~9% fewer shares after buybacks: ratio is about 13.6.
+        years = [{"end": "2022-12-31", "shares": 65.0, "eps": 30.0}, {"end": "2023-12-31", "shares": 885.0, "eps": 2.5}]
+        fetch_companies.adjust_for_splits(years)
+        self.assertEqual(years[0]["shares"], 975.0)
+        self.assertAlmostEqual(years[0]["eps"], 2.0)
 
     def test_ordinary_dilution_is_not_a_split(self):
         years = [{"end": "2020-12-31", "shares": 100.0, "eps": 1.0}, {"end": "2021-12-31", "shares": 130.0, "eps": 1.0}]
