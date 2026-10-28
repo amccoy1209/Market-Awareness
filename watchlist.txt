@@ -5,7 +5,6 @@
 KO      # Coca-Cola
 AXP     # American Express
 MCO     # Moody's
-CVX     # Chevron
 V       # Visa
 MA      # Mastercard
 
