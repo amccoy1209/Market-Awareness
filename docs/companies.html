@@ -20,6 +20,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="watchlist" aria-selected="true">Watchlist <span id="count-watchlist" class="count"></span></button>
       <button role="tab" data-tab="ipos" aria-selected="false">Recent IPOs <span id="count-ipos" class="count"></span></button>
+      <button role="tab" data-tab="discover" aria-selected="false">Discover <span id="count-discover" class="count"></span></button>
     </div>
 
     <p id="tab-intro" class="muted small"></p>
@@ -27,6 +28,7 @@
     <div class="toolbar">
       <input id="search" type="search" placeholder="Search ticker or name" aria-label="Search companies">
       <div id="filters" class="filters"></div>
+      <button id="shuffle" class="shuffle" hidden>↻ Shuffle 25 new picks</button>
     </div>
 
     <section id="list" class="company-list" aria-live="polite">
@@ -40,6 +42,7 @@
         <li><strong>Intrinsic value</strong> discounts the average free cash flow of the last 3 years ("owner earnings") at <span data-rule="discount_rate"></span> a year, assuming growth equal to the lower of past revenue and EPS growth (capped at <span data-rule="max_growth"></span>) for 10 years, then <span data-rule="terminal_growth"></span>.</li>
         <li><strong>Buy-below price</strong> applies a <span data-rule="margin_of_safety"></span> margin of safety to that value. A company is a <em>buy candidate</em> only if it passes most checks (including profits and debt), trades below that price and yields more than the 10-year Treasury<span id="treasury"></span>.</li>
         <li><strong>IPOs</strong> are scored the same way. Most will show "too early": Buffett rarely buys IPOs because the seller picks the timing and the price, and a new company lacks a long record. Insider lock-ups typically end about 180 days after listing.</li>
+        <li><strong>Discover</strong> scans 250 NYSE/Nasdaq companies a day (about 6,000 in total, each rescanned monthly) and keeps the smaller, fast-growing ones that pass the business checks. You see 25 random picks each visit; the pool grows over the first few weeks.</li>
         <li>Numbers can't see management quality or how durable a moat really is, which Buffett and Munger weigh heavily. Treat this as a first filter for further research, not investment advice.</li>
       </ul>
     </section>

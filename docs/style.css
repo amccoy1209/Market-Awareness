@@ -179,6 +179,11 @@ footer { padding: 8px 16px 40px; }
 }
 .filters { display: flex; gap: 6px; flex-wrap: wrap; }
 .filters button { padding: 5px 11px; font-size: 13px; border-radius: 999px; }
+.shuffle {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 14px; border-radius: 999px;
+  color: var(--link); background: var(--surface); border: 1px solid var(--link);
+}
+.shuffle[hidden] { display: none; }
 .filters button[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 .company-list { display: flex; flex-direction: column; gap: 8px; }

@@ -15,6 +15,7 @@ import gzip
 import io
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -23,11 +24,15 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from value_rules import RULES, evaluate
+from value_rules import RULES, evaluate, is_hidden_gem
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "companies.json"
 WATCHLIST = ROOT / "watchlist.txt"
+DISCOVERY_OUTPUT = ROOT / "docs" / "discovery.json"
+DISCOVERY_PER_RUN = 250        # companies scanned per daily run, to stay gentle on the SEC
+DISCOVERY_RESCAN_DAYS = 30     # how long before a company is scanned again
+PLAIN_TICKER = re.compile(r"^[A-Z]{1,5}$")  # skips warrants, units and preferred shares
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
 # Collapse whitespace so a pasted secret with a stray line break still forms a valid header.
 SEC_UA = " ".join(os.environ.get("SEC_USER_AGENT", "").split()) or "Market-Awareness 298371312+amccoy1209@users.noreply.github.com"
@@ -65,6 +70,7 @@ INSTANT = {
              "us-gaap:LongTermDebt", "ifrs-full:NoncurrentPortionOfNoncurrentBorrowings"],
 }
 UNITS = {"eps": "USD/shares", "shares": "shares"}
+SPLIT_RATIOS = (2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20, 25, 30, 40, 50)
 
 
 # --- HTTP ---------------------------------------------------------------------
@@ -155,7 +161,56 @@ def annual_table(facts):
         else:
             y["fcf"] = None
         years.append(y)
-    return years[-10:]
+    years = years[-10:]
+    repair_shares(years, _cover_shares(facts))
+    adjust_for_splits(years)
+    return years
+
+
+def _cover_shares(facts):
+    """{date: shares outstanding, summed across share classes} from filing cover pages."""
+    by_filing = {}
+    for f in _facts_for(facts, "dei:EntityCommonStockSharesOutstanding", "shares"):
+        key = (f["end"], f.get("accn"))
+        by_filing[key] = (by_filing.get(key, (0, ""))[0] + f["val"], f["filed"])
+    best = {}
+    for (end, _), (total, filed) in by_filing.items():
+        if end not in best or filed > best[end][1]:
+            best[end] = (total, filed)
+    return {end: total for end, (total, _) in best.items()}
+
+
+def repair_shares(years, cover):
+    """Fix share counts that are missing (multi-class companies) or mis-scaled in the filing."""
+    for y in years:
+        ni, eps = y.get("net_income"), y.get("eps")
+        implied = ni / eps if ni and eps and abs(eps) >= 0.05 else None
+        if implied and implied > 0 and not (y.get("shares") and 0.5 <= y["shares"] / implied <= 2):
+            y["shares"] = implied
+        if not y.get("shares"):
+            end = date.fromisoformat(y["end"])
+            later = sorted(d for d in cover if end < date.fromisoformat(d) <= end + timedelta(days=150))
+            if later:
+                y["shares"] = cover[later[0]]
+        if eps is None and y.get("shares") and ni is not None:
+            y["eps"] = ni / y["shares"]
+
+
+def adjust_for_splits(years):
+    """Restate earlier years for stock splits, which old filings never restate."""
+    for i in range(len(years) - 1, 0, -1):
+        before, after = years[i - 1].get("shares"), years[i].get("shares")
+        if not before or not after:
+            continue
+        ratio = after / before
+        factor = next((r for r in SPLIT_RATIOS if abs(ratio / r - 1) < 0.06), None)
+        if factor is None:
+            inverse = next((r for r in SPLIT_RATIOS if abs(ratio * r - 1) < 0.06), None)
+            factor = 1 / inverse if inverse else None  # reverse split
+        if factor:
+            for y in years[:i]:
+                y["shares"] = y["shares"] * factor if y.get("shares") else y.get("shares")
+                y["eps"] = y["eps"] / factor if y.get("eps") is not None else None
 
 
 def ticker_map():
@@ -289,6 +344,66 @@ def recent_ipos(today):
     return ipos
 
 
+# --- Discovery: rotating scan for under-the-radar companies ---------------------
+
+def listed_universe(exclude):
+    """{ticker: (cik, name)} for NYSE/Nasdaq companies, one plain ticker per company."""
+    data = get_json("https://www.sec.gov/files/company_tickers_exchange.json")
+    by_cik = {}
+    for cik, name, ticker, exchange in data["data"]:
+        t = (ticker or "").upper()
+        if exchange not in ("NYSE", "Nasdaq") or not PLAIN_TICKER.match(t) or t in exclude:
+            continue
+        if cik not in by_cik or len(t) < len(by_cik[cik][0]):
+            by_cik[cik] = (t, name)
+    return {t: (cik, name) for cik, (t, name) in by_cik.items()}
+
+
+def pick_batch(universe, scanned, today, n):
+    """Never-scanned companies first (in random order), then the least recently scanned."""
+    cutoff = (today - timedelta(days=DISCOVERY_RESCAN_DAYS)).isoformat()
+    due = [t for t in universe if scanned.get(t, "") < cutoff]
+    random.shuffle(due)
+    due.sort(key=lambda t: scanned.get(t, ""))
+    return due[:n]
+
+
+def discover(treasury, today, exclude):
+    try:
+        previous = json.loads(DISCOVERY_OUTPUT.read_text())
+    except (FileNotFoundError, ValueError):
+        previous = {}
+    scanned = previous.get("scanned", {})
+    gems = {g["ticker"]: g for g in previous.get("candidates", [])}
+    universe = listed_universe(exclude)
+    batch = pick_batch(universe, scanned, today, DISCOVERY_PER_RUN)
+    print(f"Discovery: scanning {len(batch)} of {len(universe)} listed companies")
+    failed = 0
+    for t in batch:
+        cik, name = universe[t]
+        scanned[t] = today.isoformat()
+        gems.pop(t, None)
+        try:
+            entry = build_entry("discovery", t, cik, name, treasury, today)
+        except Exception:
+            failed += 1  # usually no XBRL financials (funds, trusts, very new filers)
+            continue
+        if is_hidden_gem(entry):
+            entry["scanned"] = today.isoformat()
+            gems[t] = entry
+    output = {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "universe": len(universe),
+        "scanned_count": sum(1 for t in scanned if t in universe),
+        "rules": RULES,
+        "scanned": {t: d for t, d in scanned.items() if t in universe},
+        "candidates": sorted((g for t, g in gems.items() if t in universe), key=lambda g: g["ticker"]),
+    }
+    DISCOVERY_OUTPUT.write_text(json.dumps(output, separators=(",", ":")))
+    print(f"Discovery: {len(output['candidates'])} candidates in pool, "
+          f"{output['scanned_count']}/{len(universe)} companies scanned so far, {failed} skipped this run")
+
+
 # --- Assemble -----------------------------------------------------------------
 
 def read_watchlist():
@@ -373,6 +488,11 @@ def main():
     print(f"Wrote {OUTPUT}: {len(watchlist)} watchlist companies, {len(ipos)} IPOs, {len(errors)} errors")
     if not watchlist and not ipos:
         sys.exit("No companies could be scored; check network access and SEC_USER_AGENT.")
+
+    try:
+        discover(treasury, today, exclude=set(read_watchlist()) | {i["ticker"] for i in ipos})
+    except Exception as err:
+        print(f"!! Discovery scan failed: {err}", file=sys.stderr)
 
 
 if __name__ == "__main__":

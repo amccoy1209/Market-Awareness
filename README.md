@@ -43,6 +43,11 @@ It covers two lists:
 - **Recent IPOs:** found automatically from SEC IPO prospectus filings (form 424B4) in the last 12 months,
   excluding SPACs and funds. Most show "Too early", which matches Buffett's own caution about IPOs.
 
+- **Discover:** every day the update scans 250 more of the ~6,000 NYSE/Nasdaq companies (each is rescanned
+  monthly). Those with a market value of $100M–$10B, revenue growing 10%+ a year and passing the business checks
+  join a pool. Each time you open the page it shows 25 random picks from that pool, and a Shuffle button draws more.
+  The pool fills up over the first 3–4 weeks.
+
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.
 

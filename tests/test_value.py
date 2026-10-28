@@ -10,7 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import fetch_companies  # noqa: E402
-from value_rules import FAIL, NA, PASS, evaluate, intrinsic_value, quality_checks  # noqa: E402
+from value_rules import FAIL, NA, PASS, evaluate, intrinsic_value, is_hidden_gem, quality_checks  # noqa: E402
 
 
 def year(n, ni=100.0, rev=400.0, gp=240.0, fcf=95.0, capex=20.0, equity=500.0, debt=200.0, eps=None, shares=100.0):
@@ -90,6 +90,10 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "too_early")
         self.assertEqual(result["lockup_end"], "2027-02-28")
 
+    def test_tiny_value_per_share_does_not_crash(self):
+        years = [year(i, ni=1e-4, fcf=1e-4, rev=4e-4, gp=2.4e-4, debt=0) for i in range(6)]
+        self.assertEqual(evaluate(years, 5.0, None)["verdict"], "watch")
+
     def test_no_data(self):
         self.assertEqual(evaluate([], None, None)["verdict"], "no_data")
 
@@ -99,6 +103,40 @@ def fact(end, val, start=None, form="10-K", filed=None):
     if start:
         f["start"] = start
     return f
+
+
+class HiddenGemTests(unittest.TestCase):
+    def gem(self, verdict="watch", cap=2e9, growth=15.0):
+        return {"verdict": verdict, "valuation": {"market_cap": cap, "revenue_growth": growth}}
+
+    def test_screen(self):
+        self.assertTrue(is_hidden_gem(self.gem()))
+        self.assertTrue(is_hidden_gem(self.gem(verdict="buy")))
+        self.assertFalse(is_hidden_gem(self.gem(verdict="avoid")))
+        self.assertFalse(is_hidden_gem(self.gem(cap=50e9)))   # too big to be under the radar
+        self.assertFalse(is_hidden_gem(self.gem(cap=20e6)))   # micro-cap
+        self.assertFalse(is_hidden_gem(self.gem(growth=4.0)))  # not growing fast enough
+
+    def test_evaluate_reports_cap_and_growth(self):
+        val = evaluate(compounder(), 10.0, 4.0)["valuation"]
+        self.assertEqual(val["market_cap"], 1000)
+        self.assertAlmostEqual(val["revenue_growth"], 8.0, places=0)
+
+
+class DiscoveryTests(unittest.TestCase):
+    def test_pick_batch_prefers_unscanned_then_oldest(self):
+        universe = {t: (i, t) for i, t in enumerate(["A", "B", "C", "D", "E"])}
+        scanned = {"A": "2026-10-01", "B": "2026-07-01", "C": "2026-10-27"}
+        batch = fetch_companies.pick_batch(universe, scanned, date(2026, 10, 28), 3)
+        self.assertEqual(sorted(batch[:2]), ["D", "E"])  # never scanned
+        self.assertEqual(batch[2], "B")                   # oldest scan; A and C are recent
+
+    def test_listed_universe_filters(self):
+        data = {"fields": ["cik", "name", "ticker", "exchange"], "data": [
+            [1, "Alpha", "ALP", "Nasdaq"], [1, "Alpha", "ALPWW", "Nasdaq"], [2, "Beta", "BET-PA", "NYSE"],
+            [3, "Gamma", "GAM", "OTC"], [4, "Delta", "DEL", "NYSE"], [5, "Watched", "WAT", "NYSE"]]}
+        with mock.patch.object(fetch_companies, "get_json", return_value=data):
+            self.assertEqual(fetch_companies.listed_universe({"WAT"}), {"ALP": (1, "Alpha"), "DEL": (4, "Delta")})
 
 
 class SecParsingTests(unittest.TestCase):
@@ -123,6 +161,37 @@ class SecParsingTests(unittest.TestCase):
         self.assertEqual(years[1]["gross_profit"], 60)
         self.assertEqual(years[1]["fcf"], 16)
         self.assertEqual(years[1]["equity"], 70)
+
+    def test_stock_split_is_restated(self):
+        # 4-for-1 split between 2020 and 2021: old filings keep pre-split shares and EPS.
+        years = [{"end": f"{y}-12-31", "net_income": 100.0 + y - 2018, "eps": None, "shares": None} for y in range(2018, 2023)]
+        for y in years:
+            split = y["end"] >= "2021"
+            y["shares"] = 400.0 if split else 100.0
+            y["eps"] = y["net_income"] / y["shares"]
+        fetch_companies.adjust_for_splits(years)
+        self.assertEqual([y["shares"] for y in years], [400.0] * 5)
+        self.assertAlmostEqual(years[0]["eps"], 100 / 400)
+
+    def test_ordinary_dilution_is_not_a_split(self):
+        years = [{"end": "2020-12-31", "shares": 100.0, "eps": 1.0}, {"end": "2021-12-31", "shares": 130.0, "eps": 1.0}]
+        fetch_companies.adjust_for_splits(years)
+        self.assertEqual(years[0]["shares"], 100.0)
+
+    def test_repair_mis_scaled_and_missing_shares(self):
+        years = [{"end": "2024-12-31", "net_income": 8e9, "eps": 11.0, "shares": 731.0},   # filed in millions
+                 {"end": "2025-12-31", "net_income": 5e9, "eps": None, "shares": None}]    # multi-class: no total
+        cover = {"2026-02-01": 2e9, "2027-01-01": 9e9}
+        fetch_companies.repair_shares(years, cover)
+        self.assertAlmostEqual(years[0]["shares"], 8e9 / 11)
+        self.assertEqual(years[1]["shares"], 2e9)
+        self.assertAlmostEqual(years[1]["eps"], 2.5)
+
+    def test_cover_shares_sums_classes(self):
+        facts = {"facts": {"dei": {"EntityCommonStockSharesOutstanding": {"units": {"shares": [
+            {"end": "2026-02-01", "val": 150, "accn": "a1", "filed": "2026-02-10"},
+            {"end": "2026-02-01", "val": 60, "accn": "a1", "filed": "2026-02-10"}]}}}}}
+        self.assertEqual(fetch_companies._cover_shares(facts), {"2026-02-01": 210})
 
     def test_parse_form_index(self):
         text = """Form Type   Company Name                                                  CIK         Date Filed  File Name
@@ -170,6 +239,22 @@ class EndToEndTest(unittest.TestCase):
                 "EarningsPerShareDiluted": {"units": {"USD/shares": [dict(f, val=f["val"] / 100) for f in ni]}},
                 "WeightedAverageNumberOfDilutedSharesOutstanding": {"units": {"shares": [dict(f, val=100) for f in ni]}},
             }}}).encode()
+        if url.endswith("company_tickers_exchange.json"):
+            return json.dumps({"data": [[1, "Good Co", "GOOD", "NYSE"], [3, "Small Grower", "SMOL", "Nasdaq"],
+                                        [4, "Junk Co", "JUNK", "NYSE"]]}).encode()
+        if "companyfacts/CIK0000000003" in url:
+            years = range(2018, 2026)
+            ni = [fact(f"{y}-12-31", 10e6 * 1.2 ** (y - 2018), f"{y}-01-01") for y in years]
+            return json.dumps({"entityName": "Small Grower", "facts": {"us-gaap": {
+                "NetIncomeLoss": {"units": {"USD": ni}},
+                "Revenues": {"units": {"USD": [dict(f, val=f["val"] * 4) for f in ni]}},
+                "GrossProfit": {"units": {"USD": [dict(f, val=f["val"] * 2.5) for f in ni]}},
+                "NetCashProvidedByUsedInOperatingActivities": {"units": {"USD": [dict(f, val=f["val"] * 1.1) for f in ni]}},
+                "EarningsPerShareDiluted": {"units": {"USD/shares": [dict(f, val=f["val"] / 1e8) for f in ni]}},
+                "WeightedAverageNumberOfDilutedSharesOutstanding": {"units": {"shares": [dict(f, val=1e8) for f in ni]}},
+            }}}).encode()
+        if "companyfacts/CIK0000000004" in url:
+            raise fetch_companies.urllib.error.HTTPError(url, 404, "nf", {}, None)
         if "companyfacts/CIK0000000002" in url:
             raise fetch_companies.urllib.error.HTTPError(url, 404, "nf", {}, None)
         if "form.idx" in url:
@@ -187,19 +272,24 @@ class EndToEndTest(unittest.TestCase):
 
     def test_main(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out, wl = Path(tmp) / "companies.json", Path(tmp) / "watchlist.txt"
+            out, wl, disc = Path(tmp) / "companies.json", Path(tmp) / "watchlist.txt", Path(tmp) / "discovery.json"
             wl.write_text("GOOD  # good co\nMISSING\n")
             with mock.patch.object(fetch_companies, "get", self.fake_get), \
                     mock.patch.object(fetch_companies, "OUTPUT", out), \
                     mock.patch.object(fetch_companies, "WATCHLIST", wl), \
+                    mock.patch.object(fetch_companies, "DISCOVERY_OUTPUT", disc), \
                     mock.patch.dict(os.environ, {"FRED_API_KEY": ""}):
                 fetch_companies.main()
             data = json.loads(out.read_text())
+            discovery = json.loads(disc.read_text())
         self.assertEqual([c["ticker"] for c in data["watchlist"]], ["GOOD"])
         self.assertIn(data["watchlist"][0]["verdict"], {"buy", "watch"})
         self.assertEqual(data["ipos"][0]["ticker"], "BNEW")
         self.assertEqual(data["ipos"][0]["verdict"], "no_data")
         self.assertEqual(data["errors"][0]["ticker"], "MISSING")
+        # Watchlist ticker GOOD is excluded from discovery; JUNK has no financials.
+        self.assertEqual(sorted(discovery["scanned"]), ["JUNK", "SMOL"])
+        self.assertEqual([c["ticker"] for c in discovery["candidates"]], ["SMOL"])
 
 
 if __name__ == "__main__":

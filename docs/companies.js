@@ -11,9 +11,20 @@ const ORDER = ["buy", "watch", "too_early", "avoid", "no_data"];
 const INTRO = {
   watchlist: "Companies from watchlist.txt in the repository. Edit that file on GitHub to add or remove tickers.",
   ipos: "US companies that went public in roughly the last 12 months, found from their SEC IPO prospectus filings (SPACs and funds excluded).",
+  discover: "",
 };
+const SAMPLE_SIZE = 25;
 
-const state = { data: null, tab: "watchlist", filter: "all", query: "" };
+const state = { data: null, pool: [], tab: "watchlist", filter: "all", query: "" };
+
+function shuffleSample() {
+  const pool = state.pool.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  state.data.discover = pool.slice(0, SAMPLE_SIZE);
+}
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
   { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -68,7 +79,9 @@ function row(c) {
       <span class="nums">
         <span><small>Price</small>${money(c.price)}</span>
         <span><small>Buy below</small>${money(val.buy_below)}</span>
-        <span class="hide-sm"><small>Score</small>${score || "—"}</span>
+        ${c.kind === "discovery"
+          ? `<span class="hide-sm"><small>Rev. growth</small>${pct(val.revenue_growth)}</span>`
+          : `<span class="hide-sm"><small>Score</small>${score || "—"}</span>`}
       </span>
     </summary>
     <div class="company-body">
@@ -80,6 +93,9 @@ function row(c) {
         <span>P/E: ${val.pe ?? "—"}</span>
         <span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
         <span>Growth assumed: ${pct(val.growth_used)}</span>
+        <span>Revenue growth: ${pct(val.revenue_growth)}/yr</span>
+        <span>Market value: ${big(val.market_cap)}</span>
+        ${c.scanned ? `<span class="muted">Scanned ${fmtDate(c.scanned)}</span>` : ""}
       </div>
       ${checks ? `<ul class="checks">${checks}</ul>` : ""}
       ${history ? `<table class="hist"><caption>Annual results (SEC filings)</caption>
@@ -102,14 +118,29 @@ function render() {
     .filter((c) => state.filter === "all" || c.verdict === state.filter)
     .filter((c) => !q || c.ticker.toLowerCase().includes(q) || (c.name || "").toLowerCase().includes(q))
     .sort((a, b) => ORDER.indexOf(a.verdict) - ORDER.indexOf(b.verdict)
-      || (state.tab === "ipos" ? (b.ipo_date || "").localeCompare(a.ipo_date || "") : a.ticker.localeCompare(b.ticker)));
-  document.getElementById("list").innerHTML = shown.length
-    ? shown.map(row).join("") : `<p class="muted">No companies match.</p>`;
+      || (state.tab === "ipos" ? (b.ipo_date || "").localeCompare(a.ipo_date || "")
+        : state.tab === "discover" ? (b.valuation.revenue_growth || 0) - (a.valuation.revenue_growth || 0)
+        : a.ticker.localeCompare(b.ticker)));
+  document.getElementById("list").innerHTML = shown.length ? shown.map(row).join("")
+    : state.tab === "discover" && !state.pool.length
+      ? `<p class="muted">No hidden-gem candidates found yet. The daily scan adds more companies each day.</p>`
+      : `<p class="muted">No companies match.</p>`;
+  document.getElementById("shuffle").hidden = state.tab !== "discover" || state.pool.length <= SAMPLE_SIZE;
   document.getElementById("tab-intro").textContent = INTRO[state.tab];
 }
 
-function setup(data) {
+function setup(data, discovery) {
   state.data = data;
+  state.pool = discovery ? discovery.candidates : [];
+  shuffleSample();
+  const r = discovery && discovery.rules;
+  INTRO.discover = discovery
+    ? `${SAMPLE_SIZE} random picks from ${state.pool.length} under-the-radar candidates: market value $${r.gem_min_cap / 1e6}M–$${r.gem_max_cap / 1e9}B, `
+      + `revenue growing ${r.gem_min_revenue_growth}%+ a year, and passing the business checks. `
+      + `${discovery.scanned_count.toLocaleString()} of ${discovery.universe.toLocaleString()} NYSE/Nasdaq companies scanned so far (250 a day, rescanned monthly). `
+      + `Buy candidates (below their buy-below price) are listed first.`
+    : "The discovery scan hasn't run yet.";
+  document.getElementById("count-discover").textContent = Math.min(SAMPLE_SIZE, state.pool.length);
   document.getElementById("count-watchlist").textContent = data.watchlist.length;
   document.getElementById("count-ipos").textContent = data.ipos.length;
   for (const el of document.querySelectorAll("[data-rule]")) {
@@ -131,12 +162,14 @@ function setup(data) {
     if (b) { state.filter = b.dataset.filter; render(); }
   });
   document.getElementById("search").addEventListener("input", (e) => { state.query = e.target.value.trim(); render(); });
+  document.getElementById("shuffle").addEventListener("click", () => { shuffleSample(); state.filter = "all"; render(); });
   render();
 }
 
-fetch("companies.json", { cache: "no-store" })
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(setup)
+const getJSON = (url) => fetch(url, { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+
+Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => null)])
+  .then(([data, discovery]) => setup(data, discovery))
   .catch(() => {
     document.getElementById("list").innerHTML =
       `<p>No data yet. Run the “Update market data” GitHub Action to generate <code>companies.json</code>.</p>`;

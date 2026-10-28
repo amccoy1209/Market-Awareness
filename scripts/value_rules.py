@@ -23,6 +23,10 @@ RULES = {
     "margin_of_safety": 0.25,     # buy-below discount to intrinsic value
     "pass_share": 0.70,           # share of quality checks that must pass
     "lockup_days": 180,           # typical IPO insider lock-up
+    # "Hidden gem" screen for the Discover tab
+    "gem_min_cap": 100e6,         # market value at least $100M
+    "gem_max_cap": 10e9,          # ...and at most $10B (under the radar)
+    "gem_min_revenue_growth": 10.0,  # revenue growth, % a year
 }
 
 PASS, FAIL, NA = "pass", "fail", "na"
@@ -146,6 +150,15 @@ def quality_checks(years, r=RULES):
     ]
 
 
+def growth_rate(years, key):
+    """Compound annual growth (%) of `key` over the last 10 years, or None."""
+    pts = [(y["end"], y[key]) for y in years[-10:] if y.get(key) is not None]
+    if len(pts) < 3:
+        return None
+    span = (date.fromisoformat(pts[-1][0]) - date.fromisoformat(pts[0][0])).days / 365.25
+    return _cagr(pts[0][1], pts[-1][1], span)
+
+
 def intrinsic_value(years, r=RULES):
     """10-year discounted owner earnings (free cash flow) per share, plus a terminal value."""
     recent = [y["fcf"] for y in years[-3:] if y.get("fcf") is not None]
@@ -157,10 +170,8 @@ def intrinsic_value(years, r=RULES):
         return None
     growth_rates = []
     for key in ("revenue", "eps"):
-        pts = [(y["end"], y[key]) for y in years[-10:] if y.get(key) is not None]
-        if len(pts) >= 3:
-            span = (date.fromisoformat(pts[-1][0]) - date.fromisoformat(pts[0][0])).days / 365.25
-            g = _cagr(pts[0][1], pts[-1][1], span)
+        if len([y for y in years[-10:] if y.get(key) is not None]) >= 3:
+            g = growth_rate(years, key)
             growth_rates.append(0.0 if g is None else g / 100)
     g = max(0.0, min(min(growth_rates) if growth_rates else 0.0, r["max_growth"]))
     d, tg = r["discount_rate"], r["terminal_growth"]
@@ -197,8 +208,13 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
         val.update(intrinsic_value=round(iv["per_share"], 2),
                    buy_below=round(iv["per_share"] * (1 - r["margin_of_safety"]), 2),
                    growth_used=round(iv["growth_used"], 1))
+    revenue_growth = growth_rate(years, "revenue")
+    if revenue_growth is not None:
+        val["revenue_growth"] = round(revenue_growth, 1)
     if price:
         val["price"] = price
+        if shares:
+            val["market_cap"] = round(price * shares)
         if latest.get("eps") and latest["eps"] > 0:
             val["pe"] = round(price / latest["eps"], 1)
         if iv and shares:
@@ -217,7 +233,7 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
                       verdict_text=f"Only {len(years)} year(s) of annual results. Buffett waits for a long track record.")
     elif not quality_ok:
         result.update(verdict="avoid", verdict_text=f"Doesn't meet the bar: passes {passed} of {len(scored)} business checks.")
-    elif not price or "buy_below" not in val:
+    elif not price or not val.get("buy_below"):
         result.update(verdict="watch", verdict_text="Quality business; price or value estimate unavailable.")
     elif price <= val["buy_below"] and (treasury_yield is None
                                         or val.get("owner_earnings_yield", 0) >= treasury_yield):
@@ -227,3 +243,11 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES):
         result.update(verdict="watch",
                       verdict_text=f"Quality business, but {gap:.0f}% above the buy-below price. Wait for a better price.")
     return result
+
+
+def is_hidden_gem(result, r=RULES):
+    """Smaller, fast-growing company that passes the business checks (any price)."""
+    val = result.get("valuation", {})
+    cap, growth = val.get("market_cap"), val.get("revenue_growth")
+    return (result.get("verdict") in ("buy", "watch") and cap is not None and growth is not None
+            and r["gem_min_cap"] <= cap <= r["gem_max_cap"] and growth >= r["gem_min_revenue_growth"])
