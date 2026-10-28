@@ -24,3 +24,4 @@ ORCL    # added from the app 2026-10-28
 BTC     # added from the app 2026-10-28
 PLTR    # added from the app 2026-10-28
 TSLA    # added from the app 2026-10-28
+BIOA    # added from the app 2026-10-28
