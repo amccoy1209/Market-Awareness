@@ -2,7 +2,6 @@
 # Edit this file on GitHub (pencil icon) to add or remove companies. Changes show up after the next daily run.
 
 # Berkshire Hathaway holdings and past holdings
-AAPL    # Apple
 KO      # Coca-Cola
 AXP     # American Express
 MCO     # Moody's
