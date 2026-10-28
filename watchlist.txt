@@ -15,7 +15,6 @@ MA      # Mastercard
 # Munger's picks and classic "quality" businesses
 COST    # Costco
 MSFT    # Microsoft
-GOOGL   # Alphabet
 JNJ     # Johnson & Johnson
 PG      # Procter & Gamble
 PEP     # PepsiCo
