@@ -33,6 +33,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -253,3 +254,30 @@ footer { padding: 8px 16px 40px; }
 .status-err { color: var(--red); }
 .watch-error { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
 .company.pending { opacity: .7; }
+
+/* My holdings */
+.holdings-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.holdings-summary p { grid-column: 1 / -1; margin: 0; }
+.holdings-summary div { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; }
+.holdings-summary small { display: block; color: var(--muted); font-size: 12px; }
+.holdings-summary strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.lot-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.lot-form input {
+  font: inherit; padding: 8px 12px; border-radius: 10px; min-width: 0; flex: 1 1 120px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+.lot-form button {
+  font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 10px; font-weight: 600;
+  background: var(--text); color: var(--bg); border: 1px solid var(--text);
+}
+.gain { color: var(--green); }
+.loss { color: var(--red); }
+.points { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; font-size: 14px; }
+.points li { padding-left: 22px; position: relative; }
+.points li::before { position: absolute; left: 0; font-weight: 700; }
+.points .good::before { content: "✓"; color: var(--green); }
+.points .warn::before { content: "!"; color: var(--yellow); }
+.points .bad::before { content: "✗"; color: var(--red); }
+.points .info::before { content: "i"; color: var(--link); font-style: italic; }
+.lot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.privacy { margin-top: 14px; }

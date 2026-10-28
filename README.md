@@ -51,6 +51,12 @@ It covers two lists:
   join a pool. Each time you open the page it shows 25 random picks from that pool, and a Shuffle button draws more.
   The pool fills up over the first 3–4 weeks.
 
+- **My holdings:** enter your positions (ticker, shares, price paid, optional date). Each one gets a
+  Buffett/Munger hold-or-sell stance from the checklist data (Buy-more zone, Hold, Hold don't add, Consider trimming,
+  Review your thesis), with notes on valuation, position size, US tax treatment of each lot and current alternatives.
+  **Holdings are stored only in your browser and never written to this public repository**; use Export/Import to move
+  them between devices. Unscored tickers can be added to the watchlist (only the ticker becomes public).
+
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.
 

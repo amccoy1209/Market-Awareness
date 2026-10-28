@@ -21,6 +21,7 @@
       <button role="tab" data-tab="watchlist" aria-selected="true">Watchlist <span id="count-watchlist" class="count"></span></button>
       <button role="tab" data-tab="ipos" aria-selected="false">Recent IPOs <span id="count-ipos" class="count"></span></button>
       <button role="tab" data-tab="discover" aria-selected="false">Discover <span id="count-discover" class="count"></span></button>
+      <button role="tab" data-tab="holdings" aria-selected="false">My holdings <span id="count-holdings" class="count"></span></button>
     </div>
 
     <p id="tab-intro" class="muted small"></p>
@@ -64,6 +65,25 @@
       <p class="muted">Loading…</p>
     </section>
 
+    <section id="holdings" class="holdings" hidden>
+      <div id="holdings-summary" class="holdings-summary"></div>
+      <form id="lot-form" class="lot-form">
+        <input id="lot-ticker" type="text" placeholder="Ticker" aria-label="Ticker" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" maxlength="10" required>
+        <input id="lot-shares" type="number" step="any" min="0" placeholder="Shares" aria-label="Number of shares" inputmode="decimal" required>
+        <input id="lot-price" type="number" step="any" min="0" placeholder="Price paid" aria-label="Price paid per share" inputmode="decimal" required>
+        <input id="lot-date" type="date" aria-label="Date bought (optional, used for tax notes)" title="Date bought (optional, used for tax notes)">
+        <button type="submit">Add position</button>
+      </form>
+      <p id="holdings-status" class="small" role="status" aria-live="polite"></p>
+      <div id="holdings-list" class="company-list"></div>
+      <p class="small muted privacy">🔒 Your holdings are saved only in this browser on this device. They're never uploaded
+        and never added to the repository, which is public.
+        <button id="export-holdings" type="button" class="linklike">Export</button> ·
+        <label class="linklike">Import<input id="import-holdings" type="file" accept="application/json,.json" hidden></label>
+        to move them to another device.</p>
+    </section>
+
     <section class="panel how">
       <h2>How companies are judged</h2>
       <ul>
@@ -83,6 +103,7 @@
   </footer>
 
   <script src="github.js"></script>
+  <script src="holdings.js"></script>
   <script src="companies.js"></script>
 </body>
 </html>
