@@ -298,3 +298,14 @@ footer { padding: 8px 16px 40px; }
 .alert-item.buy .alert-badge { background: var(--green); }
 .alert-item.sell .alert-badge { background: var(--red); }
 .alerts p { margin: 6px 2px 0; }
+
+/* News check */
+.alert-news { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; }
+.alert-news.red { color: var(--red); }
+.alert-news.yellow { color: var(--yellow); }
+.alert-news.ok { color: var(--green); }
+.news { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 10px 0; background: var(--bg); }
+.news h4 { margin: 0 0 4px; font-size: 14px; }
+.news ul.small { padding-left: 18px; margin: 6px 0; }
+.news .headlines li { margin: 4px 0; }
+.news details summary { cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 6px; }

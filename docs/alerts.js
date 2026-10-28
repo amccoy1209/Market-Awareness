@@ -24,7 +24,8 @@ const Alerts = (() => {
       seen.add(c.ticker);
       out.push({ type: "buy", ticker: c.ticker, name: c.name, tab: TAB_FOR[c.kind] || "watchlist",
         text: `${money(c.price)}, below its buy-below price of ${money(c.valuation.buy_below)}`
-          + (owned.has(c.ticker) ? ". You own it." : ".") });
+          + (owned.has(c.ticker) ? ". You own it." : "."),
+        news: newsSummary(c.news_check) });
     }
     for (const p of Holdings.positions(lots, find)) {
       const stance = Holdings.stanceFor(p.company);
@@ -38,6 +39,18 @@ const Alerts = (() => {
       }
     }
     return out;
+  }
+
+  /** One line summarizing the news check for a BUY: the worst flag, or an all-clear. */
+  function newsSummary(check) {
+    if (!check) return null;
+    const flags = check.flags || [];
+    const headlines = (check.headlines || []).length;
+    const more = flags.length > 1 ? ` (+${flags.length - 1} more)` : "";
+    if (flags.length) {
+      return { level: flags[0].level, text: `News check: ${flags[0].text}${more}` };
+    }
+    return { level: "ok", text: `News check: no warning signs in recent SEC filings or the price trend${headlines ? `; ${headlines} recent headlines to skim` : ""}.` };
   }
 
   const signature = (list) => list.map((s) => `${s.type}:${s.ticker}`).sort().join(",");
@@ -62,7 +75,8 @@ const Alerts = (() => {
         <li class="alert-item ${s.type}">
           <a href="companies.html?tab=${s.tab}&amp;q=${encodeURIComponent(s.ticker)}">
             <span class="alert-badge">${s.type === "buy" ? "BUY" : "SELL"}</span>
-            <span><strong>${esc(s.ticker)}</strong> <span class="muted">${esc(s.name)}</span><br>${esc(s.text)}</span>
+            <span><strong>${esc(s.ticker)}</strong> <span class="muted">${esc(s.name)}</span><br>${esc(s.text)}
+              ${s.news ? `<span class="alert-news ${s.news.level}">${s.news.level === "ok" ? "✓" : "⚠"} ${esc(s.news.text)}</span>` : ""}</span>
           </a>
         </li>`).join("")}
       </ul>

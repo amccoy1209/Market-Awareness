@@ -24,6 +24,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import news_check
 from value_rules import RULES, discount_rate_for, evaluate, is_hidden_gem
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -352,6 +353,35 @@ def recent_ipos(today):
     return ipos
 
 
+# --- News check for BUY candidates --------------------------------------------------
+
+def news_for(entry, today):
+    """Price trend, recent 8-K filings and headlines for one company. Each source fails independently."""
+    trend, filings, headlines = {}, [], []
+    try:
+        trend = news_check.price_trend(yahoo_chart(entry["ticker"], "1y")[1], today)
+    except Exception as err:
+        print(f"   price trend failed for {entry['ticker']}: {err}", file=sys.stderr)
+    try:
+        sub = get_json(f"https://data.sec.gov/submissions/CIK{int(entry['cik']):010d}.json")
+        filings = news_check.recent_8k(sub, entry["cik"], today)
+    except Exception as err:
+        print(f"   8-K check failed for {entry['ticker']}: {err}", file=sys.stderr)
+    try:
+        rss = get(news_check.headlines_url(entry.get("name") or entry["ticker"]), ua=PRICE_UA, sec=False)
+        headlines = news_check.parse_headlines(rss)
+    except Exception as err:
+        print(f"   headlines failed for {entry['ticker']}: {err}", file=sys.stderr)
+    return news_check.build(trend, filings, headlines, today)
+
+
+def attach_news_checks(entries, today):
+    for entry in entries:
+        if entry.get("verdict") == "buy" and entry.get("cik"):
+            print(f"News check {entry['ticker']}")
+            entry["news_check"] = news_for(entry, today)
+
+
 # --- Discovery: rotating scan for under-the-radar companies ---------------------
 
 def listed_universe(exclude):
@@ -401,6 +431,7 @@ def discover(treasury, today, exclude):
         if is_hidden_gem(entry):
             entry["scanned"] = today.isoformat()
             gems[t] = entry
+    attach_news_checks(gems.values(), today)
     output = {
         "version": DISCOVERY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -503,6 +534,8 @@ def main(watchlist_only=False):
         errors += [e for e in previous.get("errors", []) if e.get("ticker") in ipo_tickers]
     else:
         ipos = score_ipos(treasury, today, errors)
+        attach_news_checks(ipos, today)
+    attach_news_checks(watchlist, today)
 
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
