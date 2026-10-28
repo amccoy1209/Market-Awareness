@@ -30,7 +30,7 @@ OUTPUT = ROOT / "docs" / "companies.json"
 WATCHLIST = ROOT / "watchlist.txt"
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
 SEC_UA = os.environ.get("SEC_USER_AGENT") or "Market-Awareness 298371312+amccoy1209@users.noreply.github.com"
-BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+PRICE_UA = "Market-Awareness/1.0 (+https://github.com/amccoy1209/Market-Awareness)"
 IPO_WINDOW_DAYS = 365
 MAX_IPOS = 200
 SKIP_SIC = {"6770", "6221", "6722", "6726"}  # blank-check SPACs, commodity trusts, funds
@@ -170,7 +170,7 @@ def company_facts(cik):
 
 def yahoo_chart(ticker, rng="1y"):
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={rng}&interval=1d"
-    res = get_json(url, ua=BROWSER_UA, sec=False)["chart"]["result"][0]
+    res = get_json(url, ua=PRICE_UA, sec=False)["chart"]["result"][0]
     closes = res["indicators"]["quote"][0].get("close") or []
     points = [(datetime.fromtimestamp(t, timezone.utc).date().isoformat(), c)
               for t, c in zip(res.get("timestamp") or [], closes) if c is not None]
@@ -178,7 +178,7 @@ def yahoo_chart(ticker, rng="1y"):
 
 
 def stooq_price(ticker):
-    text = get(f"https://stooq.com/q/l/?s={ticker.lower()}.us&f=sd2t2ohlcv&h&e=csv", ua=BROWSER_UA, sec=False)
+    text = get(f"https://stooq.com/q/l/?s={ticker.lower()}.us&f=sd2t2ohlcv&h&e=csv", ua=PRICE_UA, sec=False)
     row = next(csv.DictReader(io.StringIO(text.decode())))
     return float(row["Close"]) if row.get("Close") not in (None, "", "N/D") else None
 
