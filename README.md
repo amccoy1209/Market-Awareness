@@ -26,6 +26,31 @@ average of its indicators. The overall verdict is:
 - **Warning:** 2–3 red areas at once
 - **High risk:** 4 or more red areas at once
 
+## Value checklist page
+
+`docs/companies.html` scores companies the way Buffett and Munger judge a business, using up to 10 years of
+annual results from SEC filings:
+
+- **10 business checks:** consistent profits, return on equity ≥ 15%, gross margin ≥ 40%, net margin ≥ 10%,
+  positive free cash flow, earnings backed by cash, long-term debt ≤ 4 years of earnings, capex ≤ 50% of earnings,
+  EPS growth ≥ 5% a year and share dilution ≤ 1% a year
+- **Intrinsic value:** 10-year discounted owner earnings (free cash flow) at 10%, then a 25% margin of safety
+  gives the **buy-below price**
+- **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)
+
+It covers two lists:
+- **Watchlist:** the tickers in `watchlist.txt`. Edit that file on GitHub to change them.
+- **Recent IPOs:** found automatically from SEC IPO prospectus filings (form 424B4) in the last 12 months,
+  excluding SPACs and funds. Most show "Too early", which matches Buffett's own caution about IPOs.
+
+- **Discover:** every day the update scans 250 more of the ~6,000 NYSE/Nasdaq companies (each is rescanned
+  monthly). Those with a market value of $100M–$10B, revenue growing 10%+ a year and passing the business checks
+  join a pool. Each time you open the page it shows 25 random picks from that pool, and a Shuffle button draws more.
+  The pool fills up over the first 3–4 weeks.
+
+All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
+`Your Name your@email`, which the SEC asks automated tools to send.
+
 ## Setup (one time, about 5 minutes)
 
 1. **Get a free FRED API key:** https://fred.stlouisfed.org/docs/api/api_key.html
@@ -52,7 +77,8 @@ No packages are needed beyond Python 3.10+.
 
 - `scripts/indicators.py`: the indicator list, thresholds and scoring rules (**edit this to tune signals**)
 - `scripts/fetch_data.py`: downloads data and release dates from FRED and writes `docs/data.json`
-- `docs/`: the web page (`index.html`, `app.js`, `style.css`)
+- `scripts/value_rules.py`, `scripts/fetch_companies.py`, `watchlist.txt`: the value checklist page
+- `docs/`: the web pages (`index.html`, `companies.html` and their scripts, `style.css`)
 - `.github/workflows/update-data.yml`: the daily automatic update
 
 *Educational tool, not investment advice. This product uses the FRED® API but is not endorsed or certified by the

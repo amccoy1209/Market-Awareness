@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Value Checklist</title>
+  <meta name="description" content="US companies and recent IPOs scored with Buffett and Munger style business and valuation checks.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <nav class="nav"><a href="index.html">Market signals</a><a href="companies.html" aria-current="page">Value checklist</a></nav>
+      <h1>Value checklist</h1>
+      <p class="sub">Companies and recent IPOs scored the way Buffett and Munger judge a business: durable profits, real cash, little debt and a sensible price.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="watchlist" aria-selected="true">Watchlist <span id="count-watchlist" class="count"></span></button>
+      <button role="tab" data-tab="ipos" aria-selected="false">Recent IPOs <span id="count-ipos" class="count"></span></button>
+      <button role="tab" data-tab="discover" aria-selected="false">Discover <span id="count-discover" class="count"></span></button>
+    </div>
+
+    <p id="tab-intro" class="muted small"></p>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search ticker or name" aria-label="Search companies">
+      <div id="filters" class="filters"></div>
+      <button id="shuffle" class="shuffle" hidden>↻ Shuffle 25 new picks</button>
+    </div>
+
+    <section id="list" class="company-list" aria-live="polite">
+      <p class="muted">Loading…</p>
+    </section>
+
+    <section class="panel how">
+      <h2>How companies are judged</h2>
+      <ul>
+        <li><strong>Ten business checks</strong> use up to 10 years of annual results from SEC filings: consistent profits, return on equity, gross and net margins, free cash flow, earnings backed by cash, debt, capital needs, per-share growth and share dilution.</li>
+        <li><strong>Intrinsic value</strong> discounts the average free cash flow of the last 3 years ("owner earnings") at <span data-rule="discount_rate"></span> a year, assuming growth equal to the lower of past revenue and EPS growth (capped at <span data-rule="max_growth"></span>) for 10 years, then <span data-rule="terminal_growth"></span>.</li>
+        <li><strong>Buy-below price</strong> applies a <span data-rule="margin_of_safety"></span> margin of safety to that value. A company is a <em>buy candidate</em> only if it passes most checks (including profits and debt), trades below that price and yields more than the 10-year Treasury<span id="treasury"></span>.</li>
+        <li><strong>IPOs</strong> are scored the same way. Most will show "too early": Buffett rarely buys IPOs because the seller picks the timing and the price, and a new company lacks a long record. Insider lock-ups typically end about 180 days after listing.</li>
+        <li><strong>Discover</strong> scans 250 NYSE/Nasdaq companies a day (about 6,000 in total, each rescanned monthly) and keeps the smaller, fast-growing ones that pass the business checks. You see 25 random picks each visit; the pool grows over the first few weeks.</li>
+        <li>Numbers can't see management quality or how durable a moat really is, which Buffett and Munger weigh heavily. Treat this as a first filter for further research, not investment advice.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="wrap muted small">
+    <p id="updated"></p>
+    <p>Data: <a href="https://www.sec.gov/edgar">SEC EDGAR</a> financial filings, share prices from Yahoo Finance (Stooq fallback), Treasury yield from FRED. Prices can be delayed. Financials are annual and may lag the latest quarter.</p>
+  </footer>
+
+  <script src="companies.js"></script>
+</body>
+</html>
