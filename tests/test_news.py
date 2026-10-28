@@ -81,6 +81,9 @@ class HeadlineTests(unittest.TestCase):
 
 
 class AttachTests(unittest.TestCase):
+    def setUp(self):
+        fetch_companies._submissions.clear()
+
     def test_only_buy_candidates_are_checked_and_failures_are_contained(self):
         entries = [{"ticker": "BUYR", "cik": 1, "name": "Buyer Inc", "verdict": "buy"},
                    {"ticker": "WAIT", "cik": 2, "name": "Waiter Inc", "verdict": "watch"}]

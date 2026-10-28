@@ -38,6 +38,10 @@ annual results from SEC filings:
   Owner earnings = the median free-cash-flow margin of the last 5 years × the latest revenue. Growth = the average of
   past revenue and EPS growth (0–15%), then 3% a year after year 10. The discount rate is the 10-year Treasury yield
   plus 4% (minimum 8%).
+- **Banks, lenders and insurers** (SEC industry codes 6000–6199, 6211, 6300–6399) are judged on return on equity
+  (≥ 12%), return on assets (≥ 1%), equity/assets (≥ 8%) and book value per share growth (≥ 5%/yr) instead of the
+  cash-flow checks, and valued at book value per share × justified P/B = (ROE − 3%) ÷ (required return − 3%), with the
+  5-year median ROE capped at 25%.
 - **Price assumes:** the same math run backwards, giving the yearly growth today's price needs. Compare it with the
   company's past growth.
 - **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)

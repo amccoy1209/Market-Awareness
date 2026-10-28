@@ -25,6 +25,12 @@ RULES = {
     "margin_of_safety": 0.25,     # buy-below discount to intrinsic value
     "pass_share": 0.70,           # share of quality checks that must pass
     "lockup_days": 180,           # typical IPO insider lock-up
+    # Banks, lenders and insurers (see is_financial_sic): checked and valued on equity, not free cash flow
+    "fin_min_roe": 12.0,          # average return on equity, %
+    "fin_min_roa": 1.0,           # average return on assets, %
+    "fin_min_equity_assets": 8.0,  # latest equity as % of assets (leverage)
+    "fin_min_book_growth": 5.0,   # book value per share growth, % a year
+    "fin_max_roe_for_value": 0.25,  # cap on the sustained ROE assumed when valuing
     # "Hidden gem" screen for the Discover tab
     "gem_min_cap": 100e6,         # market value at least $100M
     "gem_max_cap": 10e9,          # ...and at most $10B (under the radar)
@@ -231,11 +237,12 @@ def implied_growth(price, owner_earnings_per_share, discount_rate, r=RULES):
     return (lo + hi) / 2 * 100
 
 
-def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, per_share_ok=True):
+def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, per_share_ok=True, financial=False):
     """Score one company. Returns checks, valuation numbers and a verdict.
 
     per_share_ok=False (foreign filers) skips per-share valuation: their US-listed ADRs often
     represent a different number of shares than the filing reports, so value per share can't be compared to price.
+    financial=True (banks, lenders, insurers) uses financial_checks and the book-value method instead of free cash flow.
     """
     today = today or date.today()
     result = {"years_of_data": len(years), "checks": [], "valuation": {}, "notes": []}
@@ -251,15 +258,31 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
         return result
 
     latest = years[-1]
-    checks = quality_checks(years, r)
+    checks = financial_checks(years, r) if financial else quality_checks(years, r)
     result["checks"] = checks
     discount = discount_rate_for(treasury_yield, r)
-    iv = intrinsic_value(years, discount, r) if per_share_ok else None
     shares = latest.get("shares") if per_share_ok else None
+    iv = book = None
+    if financial:
+        result["valuation_method"] = "book"
+        result["notes"].append("Valued by book value: a bank's or insurer's cash flow mixes in loans, deposits and "
+                               "insurance float, so it's judged on return on equity and book value, as Buffett does.")
+        book = book_value_estimate(years, discount, r) if per_share_ok else None
+    elif per_share_ok:
+        iv = intrinsic_value(years, discount, r)
     if not per_share_ok:
         result["notes"].append("Foreign filer: US shares usually trade as ADRs representing a different number of "
                                "shares, so per-share value and P/E aren't shown. Business checks still apply.")
     val = result["valuation"]
+    if book:
+        val.update(intrinsic_value=round(book["per_share"], 2),
+                   buy_below=round(book["per_share"] * (1 - r["margin_of_safety"]), 2),
+                   book_value_per_share=round(book["book_value_per_share"], 2),
+                   justified_pb=round(book["justified_pb"], 2), roe_used=round(book["roe_used"], 1),
+                   discount_rate=round(book["discount_rate"], 1))
+        if price:
+            val["price_to_book"] = round(price / book["book_value_per_share"], 2)
+            val["implied_roe"] = round(implied_roe(price, book["book_value_per_share"], discount, r), 1)
     if iv:
         val.update(intrinsic_value=round(iv["per_share"], 2),
                    buy_below=round(iv["per_share"] * (1 - r["margin_of_safety"]), 2),
@@ -302,6 +325,94 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
         result.update(verdict="watch",
                       verdict_text=f"Quality business, but {gap:.0f}% above the buy-below price. Wait for a better price.")
     return result
+
+
+# --- Banks, lenders and insurers --------------------------------------------------------
+# Their cash flow statements mix in loans made, deposits and insurance float, so free cash flow says little about
+# what owners earn. Buffett judges them on return on equity and assets, leverage and growth in book value per share.
+
+def is_financial_sic(sic):
+    """Banks, savings institutions, credit and lending companies, brokers and insurance carriers.
+
+    Insurance agents and brokers (6411), asset managers (6282) and exchanges (6200) are excluded: they're fee
+    businesses whose free cash flow works normally.
+    """
+    try:
+        code = int(sic)
+    except (TypeError, ValueError):
+        return False
+    return 6000 <= code <= 6199 or code == 6211 or 6300 <= code <= 6399
+
+
+def book_value_per_share(y):
+    """Common equity (excluding preferred stock) per share for one year."""
+    if not y.get("equity") or not y.get("shares"):
+        return None
+    return (y["equity"] - (y.get("preferred") or 0)) / y["shares"]
+
+
+def median(values):
+    values = sorted(values)
+    if not values:
+        return None
+    mid = len(values) // 2
+    return values[mid] if len(values) % 2 else (values[mid - 1] + values[mid]) / 2
+
+
+def financial_checks(years, r=RULES):
+    """Checks for banks and insurers: profits, ROE, ROA, leverage, book value growth, margin, EPS growth, dilution."""
+    base = {c["key"]: c for c in quality_checks(years, r)}
+    last10 = years[-10:]
+    roe = _avg([_ratio(y.get("net_income"), y.get("equity")) if (y.get("equity") or 0) > 0 else None for y in last10])
+    roa = _avg([_ratio(y.get("net_income"), y.get("assets")) for y in last10])
+    equity_assets = _ratio(years[-1].get("equity"), years[-1].get("assets"))
+    books = [(y["end"], book_value_per_share(y)) for y in last10 if book_value_per_share(y)]
+    book_growth = None
+    if len(books) >= 3:
+        span = (date.fromisoformat(books[-1][0]) - date.fromisoformat(books[0][0])).days / 365.25
+        book_growth = _cagr(books[0][1], books[-1][1], span)
+    return [
+        base["profits"],
+        check("roe", "High return on equity", threshold(roe, minimum=r["fin_min_roe"]), roe,
+              f"Average ≥ {r['fin_min_roe']:g}%", "For a bank or insurer, profit on shareholders' money is the core measure of quality."),
+        check("roa", "Return on assets", threshold(roa, minimum=r["fin_min_roa"]), roa,
+              f"Average ≥ {r['fin_min_roa']:g}%", "Profit on everything the company holds. Good banks earn 1% or more without taking big risks."),
+        check("equity_assets", "Conservative leverage", threshold(equity_assets, minimum=r["fin_min_equity_assets"]),
+              equity_assets, f"Equity ≥ {r['fin_min_equity_assets']:g}% of assets",
+              "How much of the balance sheet is owners' money. A thin cushion means a small loss can wipe out equity."),
+        check("book_growth", "Growing book value per share", threshold(book_growth, minimum=r["fin_min_book_growth"]),
+              book_growth, f"≥ {r['fin_min_book_growth']:g}% a year",
+              "Buffett's own yardstick for Berkshire: how fast owners' equity per share compounds."),
+        base["net_margin"],
+        base["growth"],
+        base["dilution"],
+    ]
+
+
+def book_value_estimate(years, discount_rate, r=RULES):
+    """Value per share = book value per share × justified price-to-book, (ROE − g) / (r − g).
+
+    A company earning exactly its required return is worth book value; one earning more is worth a premium.
+    Uses the median ROE of the last 5 years, capped, and the terminal growth rate as long-run growth.
+    """
+    bvps = book_value_per_share(years[-1])
+    roes = [y["net_income"] / y["equity"] for y in years[-5:]
+            if y.get("net_income") is not None and (y.get("equity") or 0) > 0]
+    if not bvps or bvps <= 0 or not roes:
+        return None
+    roe = median(roes)
+    g, d = r["terminal_growth"], discount_rate
+    pb = max(0.0, (min(roe, r["fin_max_roe_for_value"]) - g) / (d - g))
+    return {"per_share": pb * bvps, "book_value_per_share": bvps, "justified_pb": pb,
+            "roe_used": roe * 100, "discount_rate": d * 100}
+
+
+def implied_roe(price, bvps, discount_rate, r=RULES):
+    """Sustained ROE (%) that today's price-to-book assumes: the book-value formula run backwards."""
+    if not price or not bvps or bvps <= 0:
+        return None
+    g = r["terminal_growth"]
+    return (price / bvps * (discount_rate - g) + g) * 100
 
 
 def is_hidden_gem(result, r=RULES):

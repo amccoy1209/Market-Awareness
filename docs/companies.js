@@ -125,10 +125,13 @@ function row(c) {
       ${ipo}
       ${(c.notes || []).map((n) => `<p class="note">${esc(n)}</p>`).join("")}
       <div class="facts">
-        <span>Intrinsic value: <strong>${money(val.intrinsic_value)}</strong>/share</span>
+        <span>Intrinsic value: <strong>${money(val.intrinsic_value)}</strong>/share${c.valuation_method === "book" ? " (book-value method)" : ""}</span>
         <span>P/E: ${val.pe ?? "—"}</span>
-        <span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
-        <span>${impliedText(val)}</span>
+        ${c.valuation_method === "book" ? `
+        <span>Book value: ${money(val.book_value_per_share)}/share · price ${val.price_to_book ?? "—"}× book (justified ${val.justified_pb ?? "—"}×)</span>
+        <span>${val.implied_roe != null ? `Price assumes a sustained <strong>${pct(val.implied_roe)}</strong> return on equity (past median ${pct(val.roe_used)})` : `Past median ROE: ${pct(val.roe_used)}`}</span>`
+        : `<span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
+        <span>${impliedText(val)}</span>`}
         <span>Revenue growth: ${pct(val.revenue_growth)}/yr</span>
         <span>Market value: ${big(val.market_cap)}</span>
         ${c.scanned ? `<span class="muted">Scanned ${fmtDate(c.scanned)}</span>` : ""}

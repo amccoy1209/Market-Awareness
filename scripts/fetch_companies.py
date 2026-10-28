@@ -25,7 +25,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import news_check
-from value_rules import RULES, discount_rate_for, evaluate, is_hidden_gem
+from value_rules import RULES, discount_rate_for, evaluate, is_financial_sic, is_hidden_gem
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "companies.json"
@@ -33,7 +33,7 @@ WATCHLIST = ROOT / "watchlist.txt"
 DISCOVERY_OUTPUT = ROOT / "docs" / "discovery.json"
 DISCOVERY_PER_RUN = 250        # companies scanned per daily run, to stay gentle on the SEC
 DISCOVERY_RESCAN_DAYS = 30     # how long before a company is scanned again
-DISCOVERY_VERSION = 3          # bump when scoring logic changes, to rebuild the pool from scratch
+DISCOVERY_VERSION = 4          # bump when scoring logic changes, to rebuild the pool from scratch
 PLAIN_TICKER = re.compile(r"^[A-Z]{1,5}$")  # skips warrants, units and preferred shares
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
 # Collapse whitespace so a pasted secret with a stray line break still forms a valid header.
@@ -70,6 +70,8 @@ INSTANT = {
                "ifrs-full:EquityAttributableToOwnersOfParent", "ifrs-full:Equity"],
     "debt": ["us-gaap:LongTermDebtNoncurrent", "us-gaap:LongTermDebtAndCapitalLeaseObligations",
              "us-gaap:LongTermDebt", "ifrs-full:NoncurrentPortionOfNoncurrentBorrowings"],
+    "assets": ["us-gaap:Assets", "ifrs-full:Assets"],
+    "preferred": ["us-gaap:PreferredStockValue"],
 }
 UNITS = {"eps": "USD/shares", "shares": "shares"}
 SPLIT_TOLERANCE = 0.12  # buybacks between filings blur the exact split ratio
@@ -227,6 +229,24 @@ def ticker_map():
     return {row["ticker"].upper(): (row["cik_str"], row["title"]) for row in data.values()}
 
 
+_submissions = {}
+
+
+def submissions(cik):
+    """SEC filing index and company profile (industry code, tickers), cached for this run."""
+    if cik not in _submissions:
+        _submissions[cik] = get_json(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json")
+    return _submissions[cik]
+
+
+def industry_code(cik):
+    try:
+        return submissions(cik).get("sic")
+    except Exception as err:
+        print(f"   industry lookup failed for CIK {cik}: {err}", file=sys.stderr)
+        return None
+
+
 def company_facts(cik):
     return get_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{int(cik):010d}.json")
 
@@ -346,7 +366,7 @@ def recent_ipos(today):
         listing = ipo_from_submissions(sub, first)
         if listing:
             ipos.append({"cik": cik, "name": sub.get("name"), "ticker": listing[0], "exchange": listing[1],
-                         "ipo_date": first, "industry": sub.get("sicDescription")})
+                         "ipo_date": first, "industry": sub.get("sicDescription"), "sic": sub.get("sic")})
             if len(ipos) >= MAX_IPOS:
                 break
     print(f"Identified {len(ipos)} IPOs")
@@ -363,8 +383,7 @@ def news_for(entry, today):
     except Exception as err:
         print(f"   price trend failed for {entry['ticker']}: {err}", file=sys.stderr)
     try:
-        sub = get_json(f"https://data.sec.gov/submissions/CIK{int(entry['cik']):010d}.json")
-        filings = news_check.recent_8k(sub, entry["cik"], today)
+        filings = news_check.recent_8k(submissions(entry["cik"]), entry["cik"], today)
     except Exception as err:
         print(f"   8-K check failed for {entry['ticker']}: {err}", file=sys.stderr)
     try:
@@ -461,9 +480,10 @@ def build_entry(kind, ticker, cik, name, treasury, today, ipo=None):
     facts = company_facts(cik)
     years = annual_table(facts)
     price, first_close, price_source = price_info(ticker, ipo and ipo["ipo_date"])
+    sic = ipo.get("sic") if ipo else industry_code(cik)
     result = evaluate(years, price, treasury, ipo_date=ipo and ipo["ipo_date"], today=today,
-                      per_share_ok=not foreign_filer(facts))
-    entry = {"kind": kind, "ticker": ticker, "name": facts.get("entityName") or name, "cik": cik,
+                      per_share_ok=not foreign_filer(facts), financial=is_financial_sic(sic))
+    entry = {"kind": kind, "ticker": ticker, "name": facts.get("entityName") or name, "cik": cik, "sic": sic,
              "price": price, "price_source": price_source,
              "sec_url": f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}",
              "history": [{"end": y["end"], "revenue": y["revenue"], "net_income": y["net_income"], "fcf": y["fcf"]}
@@ -508,6 +528,7 @@ def score_ipos(treasury, today, errors):
 def main(watchlist_only=False):
     """Full daily run, or with watchlist_only just rescore watchlist.txt and keep the last IPO results."""
     today = date.today()
+    _submissions.clear()
     treasury = treasury_10y()
     tickers = ticker_map()
     errors, watchlist = [], []
