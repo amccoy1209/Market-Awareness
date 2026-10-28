@@ -17,6 +17,8 @@
   </header>
 
   <main class="wrap">
+    <section id="alerts" class="alerts" aria-live="polite" hidden></section>
+
     <section id="verdict" class="verdict" aria-live="polite">
       <p class="muted">Loading the latest data…</p>
     </section>
@@ -46,6 +48,8 @@
     <p>Data: <a href="https://fred.stlouisfed.org/">FRED, Federal Reserve Bank of St. Louis</a>. This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.</p>
   </footer>
 
+  <script src="holdings.js"></script>
+  <script src="alerts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

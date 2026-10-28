@@ -47,6 +47,17 @@ function big(v) {
   return `${sign}$${a.toLocaleString()}`;
 }
 
+function impliedText(val) {
+  const past = val.growth_used != null ? ` (past growth ${pct(val.growth_used)})` : "";
+  if (val.implied_growth != null) return `Price assumes <strong>${pct(val.implied_growth)}</strong> growth a year for 10 years${past}`;
+  if (val.owner_earnings_yield != null) {
+    // Outside the range the reverse calculation searches (−20% to 60% a year).
+    return val.price < val.intrinsic_value ? `Price assumes cash flow shrinking over 20% a year${past}`
+      : `Price assumes over 60% growth a year${past}`;
+  }
+  return `Past growth: ${pct(val.growth_used)}`;
+}
+
 function checkValue(c) {
   if (c.value == null) return "n/a";
   if (c.key === "fcf") return `${c.value} yrs positive`;
@@ -95,7 +106,7 @@ function row(c) {
         <span>Intrinsic value: <strong>${money(val.intrinsic_value)}</strong>/share</span>
         <span>P/E: ${val.pe ?? "—"}</span>
         <span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
-        <span>Growth assumed: ${pct(val.growth_used)}</span>
+        <span>${impliedText(val)}</span>
         <span>Revenue growth: ${pct(val.revenue_growth)}/yr</span>
         <span>Market value: ${big(val.market_cap)}</span>
         ${c.scanned ? `<span class="muted">Scanned ${fmtDate(c.scanned)}</span>` : ""}
@@ -111,6 +122,7 @@ function row(c) {
 }
 
 function render() {
+  Alerts.show(state.raw, state.discoveryRaw);
   const holdingsTab = state.tab === "holdings";
   document.getElementById("holdings").hidden = !holdingsTab;
   document.querySelector(".toolbar").hidden = holdingsTab;
@@ -154,6 +166,7 @@ function applyData(data, discovery) {
   if (discovery === undefined) {
     state.data.discover = sample || [];
   } else {
+    state.discoveryRaw = discovery;
     state.pool = discovery ? discovery.candidates : [];
     shuffleSample();
     const r = discovery && discovery.rules;
@@ -170,6 +183,7 @@ function applyData(data, discovery) {
     el.textContent = pct(data.rules[el.dataset.rule] * 100, 0);
   }
   if (data.treasury_yield != null) document.getElementById("treasury").textContent = ` (now ${data.treasury_yield}%)`;
+  if (data.discount_rate != null) document.getElementById("discount-rate").textContent = ` (${data.discount_rate}% now)`;
   document.getElementById("updated").textContent = `Last checked ${new Date(data.generated_at).toLocaleString()}.`
     + (data.errors.length ? ` ${data.errors.length} item(s) couldn't be loaded: ${data.errors.map((e) => e.ticker).join(", ")}.` : "");
   const pending = applyPendingEdits();
@@ -503,6 +517,18 @@ Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => nu
   .then(([data, discovery]) => {
     bindEvents();
     const { open } = applyData(data, discovery);
+    // Links from the BUY/SELL alert: companies.html?tab=watchlist&q=NFLX
+    const params = new URLSearchParams(location.search);
+    if (params.get("tab") in INTRO) {
+      const ticker = (params.get("q") || "").toUpperCase();
+      setTab(params.get("tab"), params.get("tab") === "holdings" ? "" : ticker);
+      const match = [...document.querySelectorAll("#list details, #holdings-list details")]
+        .find((d) => !d.closest("[hidden]") && d.querySelector(".ticker")?.textContent === ticker);
+      if (match) {
+        match.open = true;
+        match.scrollIntoView({ block: "start" });
+      }
+    }
     if (open.length) {
       setStatus(`Still updating ${open.map((p) => p.ticker).join(", ")}. This page refreshes by itself when the results are ready.`);
       waitForRescore();

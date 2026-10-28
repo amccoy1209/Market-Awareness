@@ -24,7 +24,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from value_rules import RULES, evaluate, is_hidden_gem
+from value_rules import RULES, discount_rate_for, evaluate, is_hidden_gem
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "docs" / "companies.json"
@@ -32,7 +32,7 @@ WATCHLIST = ROOT / "watchlist.txt"
 DISCOVERY_OUTPUT = ROOT / "docs" / "discovery.json"
 DISCOVERY_PER_RUN = 250        # companies scanned per daily run, to stay gentle on the SEC
 DISCOVERY_RESCAN_DAYS = 30     # how long before a company is scanned again
-DISCOVERY_VERSION = 2          # bump when scoring logic changes, to rebuild the pool from scratch
+DISCOVERY_VERSION = 3          # bump when scoring logic changes, to rebuild the pool from scratch
 PLAIN_TICKER = re.compile(r"^[A-Z]{1,5}$")  # skips warrants, units and preferred shares
 # The SEC rejects requests without a contact email. Override with a SEC_USER_AGENT secret if you like.
 # Collapse whitespace so a pasted secret with a stray line break still forms a valid header.
@@ -507,6 +507,7 @@ def main(watchlist_only=False):
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "treasury_yield": treasury,
+        "discount_rate": round(discount_rate_for(treasury) * 100, 1),
         "rules": RULES,
         "watchlist": watchlist,
         "ipos": ipos,

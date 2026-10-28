@@ -34,8 +34,12 @@ annual results from SEC filings:
 - **10 business checks:** consistent profits, return on equity ≥ 15%, gross margin ≥ 40%, net margin ≥ 10%,
   positive free cash flow, earnings backed by cash, long-term debt ≤ 4 years of earnings, capex ≤ 50% of earnings,
   EPS growth ≥ 5% a year and share dilution ≤ 1% a year
-- **Intrinsic value:** 10-year discounted owner earnings (free cash flow) at 10%, then a 25% margin of safety
-  gives the **buy-below price**
+- **Intrinsic value:** 10-year discounted owner earnings, then a 25% margin of safety gives the **buy-below price**.
+  Owner earnings = the median free-cash-flow margin of the last 5 years × the latest revenue. Growth = the average of
+  past revenue and EPS growth (0–15%), then 3% a year after year 10. The discount rate is the 10-year Treasury yield
+  plus 4% (minimum 8%).
+- **Price assumes:** the same math run backwards, giving the yearly growth today's price needs. Compare it with the
+  company's past growth.
 - **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)
 
 It covers two lists:
@@ -56,6 +60,11 @@ It covers two lists:
   Review your thesis), with notes on valuation, position size, US tax treatment of each lot and current alternatives.
   **Holdings are stored only in your browser and never written to this public repository**; use Export/Import to move
   them between devices. Unscored tickers can be added to the watchlist (only the ticker becomes public).
+
+**BUY / SELL alert:** when you open either page, a banner lists **BUY** (green) for any company marked a buy
+candidate (passes the business checks and trades below its buy-below price) and **SELL** (red) for any of your holdings
+whose business no longer passes the checklist, or that trades above twice its estimated value at 40+ times earnings.
+Each item links to the company. "Dismiss" hides it until the set of signals changes.
 
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.
