@@ -21,7 +21,6 @@ PEP     # PepsiCo
 MCD     # McDonald's
 HSY     # Hershey
 CL      # Colgate-Palmolive
-WMT     # Walmart
 ADP     # Automatic Data Processing
 SPGI    # S&P Global
 ORLY    # O'Reilly Automotive
