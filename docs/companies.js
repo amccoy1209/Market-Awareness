@@ -58,6 +58,27 @@ function impliedText(val) {
   return `Past growth: ${pct(val.growth_used)}`;
 }
 
+function newsSection(n) {
+  if (!n) return "";
+  const t = n.trend || {};
+  const trend = t.below_high != null
+    ? `${t.below_high > 0 ? `${t.below_high}% below` : "At"} its 52-week high of ${money(t.high_52w)}${t.change_6m != null ? ` · ${t.change_6m > 0 ? "+" : ""}${t.change_6m}% over 6 months` : ""}`
+    : "Price trend unavailable";
+  const flags = (n.flags || []).map((f) => `<li class="${f.level === "red" ? "bad" : "warn"}">${esc(f.text)}</li>`).join("");
+  const filings = (n.filings || []).map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.date)}</a>: ${f.items.map((i) => esc(i.text)).join("; ")}</li>`).join("");
+  const headlines = (n.headlines || []).map((h) => `<li><a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.title)}</a>
+    <span class="muted">${esc(h.source)}${h.date ? ` · ${fmtDate(h.date)}` : ""}</span></li>`).join("");
+  return `<div class="news">
+    <h4>News check <span class="muted small">as of ${fmtDate(n.checked)}</span></h4>
+    <p class="small">${esc(trend)}</p>
+    <ul class="points">${flags || `<li class="good">No warning signs in recent SEC filings or the price trend.</li>`}</ul>
+    ${filings ? `<details><summary>SEC 8-K filings, last 6 months (${n.filings.length})</summary><ul class="small">${filings}</ul></details>` : ""}
+    ${headlines ? `<details open><summary>Recent headlines (${n.headlines.length})</summary><ul class="small headlines">${headlines}</ul></details>`
+      : `<p class="small muted">No headlines found in the last 30 days.</p>`}
+    <p class="small muted">A low price can have a reason the financial statements don't show yet. Read these before buying.</p>
+  </div>`;
+}
+
 function checkValue(c) {
   if (c.value == null) return "n/a";
   if (c.key === "fcf") return `${c.value} yrs positive`;
@@ -100,13 +121,17 @@ function row(c) {
     </summary>
     <div class="company-body">
       <p class="verdict-text">${esc(c.verdict_text)}</p>
+      ${newsSection(c.news_check)}
       ${ipo}
       ${(c.notes || []).map((n) => `<p class="note">${esc(n)}</p>`).join("")}
       <div class="facts">
-        <span>Intrinsic value: <strong>${money(val.intrinsic_value)}</strong>/share</span>
+        <span>Intrinsic value: <strong>${money(val.intrinsic_value)}</strong>/share${c.valuation_method === "book" ? " (book-value method)" : ""}</span>
         <span>P/E: ${val.pe ?? "—"}</span>
-        <span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
-        <span>${impliedText(val)}</span>
+        ${c.valuation_method === "book" ? `
+        <span>Book value: ${money(val.book_value_per_share)}/share · price ${val.price_to_book ?? "—"}× book (justified ${val.justified_pb ?? "—"}×)</span>
+        <span>${val.implied_roe != null ? `Price assumes a sustained <strong>${pct(val.implied_roe)}</strong> return on equity (past median ${pct(val.roe_used)})` : `Past median ROE: ${pct(val.roe_used)}`}</span>`
+        : `<span>Owner-earnings yield: ${pct(val.owner_earnings_yield, 2)}${val.treasury_yield != null ? ` vs ${val.treasury_yield}% Treasury` : ""}</span>
+        <span>${impliedText(val)}</span>`}
         <span>Revenue growth: ${pct(val.revenue_growth)}/yr</span>
         <span>Market value: ${big(val.market_cap)}</span>
         ${c.scanned ? `<span class="muted">Scanned ${fmtDate(c.scanned)}</span>` : ""}

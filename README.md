@@ -38,6 +38,10 @@ annual results from SEC filings:
   Owner earnings = the median free-cash-flow margin of the last 5 years × the latest revenue. Growth = the average of
   past revenue and EPS growth (0–15%), then 3% a year after year 10. The discount rate is the 10-year Treasury yield
   plus 4% (minimum 8%).
+- **Banks, lenders and insurers** (SEC industry codes 6000–6199, 6211, 6300–6399) are judged on return on equity
+  (≥ 12%), return on assets (≥ 1%), equity/assets (≥ 8%) and book value per share growth (≥ 5%/yr) instead of the
+  cash-flow checks, and valued at book value per share × justified P/B = (ROE − 3%) ÷ (required return − 3%), with the
+  5-year median ROE capped at 25%.
 - **Price assumes:** the same math run backwards, giving the yearly growth today's price needs. Compare it with the
   company's past growth.
 - **Verdicts:** Buy candidate, Wait for a better price, Doesn't fit, or Too early (fewer than 3 years of results)
@@ -65,6 +69,11 @@ It covers two lists:
 candidate (passes the business checks and trades below its buy-below price) and **SELL** (red) for any of your holdings
 whose business no longer passes the checklist, or that trades above twice its estimated value at 40+ times earnings.
 Each item links to the company. "Dismiss" hides it until the set of signals changes.
+
+**News check for BUY candidates:** each update also records, for every buy candidate, how far it is below its 52-week
+high and its 6-month change, its SEC 8-K filings from the last 6 months (red flags: restatement, delisting notice,
+cyber incident, impairment, bankruptcy; yellow: restructuring/layoffs, officer departures, auditor change) and recent
+headlines (Google News). The BUY alert shows the most serious warning, and the company's details show the full check.
 
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.

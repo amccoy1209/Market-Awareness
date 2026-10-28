@@ -103,6 +103,12 @@ const Holdings = (() => {
           + (diff > 100 ? " The estimate is conservative for slow growers, so treat a big gap as \"expensive\", not as a precise number." : ""),
       });
     }
+    if (val.implied_roe != null && val.roe_used != null) {
+      const gap = val.implied_roe - val.roe_used;
+      points.push({ kind: gap > 2 ? "warn" : "good",
+        text: `At ${val.price_to_book}× book value, today's price assumes a sustained ${val.implied_roe}% return on equity, against a median of ${val.roe_used}% recently`
+          + (gap > 2 ? ": the market expects better returns than the company has delivered." : ": a reasonable bar given its record.") });
+    }
     if (val.implied_growth != null && val.growth_used != null) {
       const gap = val.implied_growth - val.growth_used;
       points.push({ kind: gap > 3 ? "warn" : "good",
