@@ -7,7 +7,6 @@ AXP     # American Express
 MCO     # Moody's
 OXY     # Occidental Petroleum
 CVX     # Chevron
-DVA     # DaVita
 V       # Visa
 MA      # Mastercard
 
