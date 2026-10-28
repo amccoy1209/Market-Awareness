@@ -179,13 +179,13 @@ def present_value(owner_earnings, growth, discount_rate, r=RULES):
 
 
 def owner_earnings(years):
-    """Typical free cash flow margin of the last 3 years applied to the latest revenue.
+    """Typical free cash flow margin of the last 5 years applied to the latest revenue.
 
-    Using the median margin smooths one-off swings (a large tax payment, an unusual capex year), and applying it to
-    the latest revenue keeps growing companies from being valued on stale, smaller cash flows. Falls back to the
-    plain 3-year average of free cash flow when revenue isn't reported.
+    The median margin ignores up to two one-off years (a large tax payment, an unusual capex year), and applying it
+    to the latest revenue keeps growing companies from being valued on stale, smaller cash flows. Falls back to the
+    plain average of free cash flow when revenue isn't reported.
     """
-    recent = years[-3:]
+    recent = years[-5:]
     margins = sorted(y["fcf"] / y["revenue"] for y in recent if y.get("fcf") is not None and y.get("revenue"))
     if margins and years[-1].get("revenue"):
         mid = len(margins) // 2
@@ -294,8 +294,8 @@ def evaluate(years, price, treasury_yield, ipo_date=None, today=None, r=RULES, p
         result.update(verdict="avoid", verdict_text=f"Doesn't meet the bar: passes {passed} of {len(scored)} business checks.")
     elif not price or not val.get("buy_below"):
         result.update(verdict="watch", verdict_text="Quality business; price or value estimate unavailable.")
-    elif price <= val["buy_below"] and (treasury_yield is None
-                                        or val.get("owner_earnings_yield", 0) >= treasury_yield):
+    # The discount rate already includes the Treasury yield, so bonds aren't compared a second time here.
+    elif price <= val["buy_below"]:
         result.update(verdict="buy", verdict_text="Wonderful business at a fair price: trades below the buy-below price.")
     else:
         gap = (price / val["buy_below"] - 1) * 100

@@ -281,3 +281,20 @@ footer { padding: 8px 16px 40px; }
 .points .info::before { content: "i"; color: var(--link); font-style: italic; }
 .lot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .privacy { margin-top: 14px; }
+
+/* BUY / SELL alert */
+.alerts { margin: 16px 0 4px; }
+.alerts ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.alert-item a {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
+  text-decoration: none; color: var(--text); border: 1px solid transparent;
+}
+.alert-item.buy a { background: var(--green-bg); border-color: var(--green); }
+.alert-item.sell a { background: var(--red-bg); border-color: var(--red); }
+.alert-badge {
+  flex: none; font-weight: 800; letter-spacing: .06em; font-size: 14px; padding: 4px 10px; border-radius: 8px;
+  color: var(--bg); min-width: 54px; text-align: center;
+}
+.alert-item.buy .alert-badge { background: var(--green); }
+.alert-item.sell .alert-badge { background: var(--red); }
+.alerts p { margin: 6px 2px 0; }

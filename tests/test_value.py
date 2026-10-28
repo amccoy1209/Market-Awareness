@@ -82,6 +82,12 @@ class ValuationTests(unittest.TestCase):
         years = [year(0, rev=400, fcf=80), year(1, rev=450, fcf=22.5), year(2, rev=500, fcf=110)]
         self.assertAlmostEqual(owner_earnings(years), 100.0)
 
+    def test_owner_earnings_ignores_two_one_off_years(self):
+        # Normal margin ~21%, then two years hit by one-off payments: the 5-year median stays at 21%.
+        margins = (0.29, 0.22, 0.21, 0.10, 0.11)
+        years = [year(i, rev=100, fcf=100 * m) for i, m in enumerate(margins)]
+        self.assertAlmostEqual(owner_earnings(years), 21.0)
+
     def test_owner_earnings_without_revenue_falls_back_to_average(self):
         years = [dict(year(i, fcf=f), revenue=None) for i, f in enumerate((10, 20, 30))]
         self.assertAlmostEqual(owner_earnings(years), 20.0)

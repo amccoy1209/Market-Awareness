@@ -131,3 +131,4 @@ async function main() {
 }
 
 main();
+Alerts.load();

@@ -122,6 +122,7 @@ function row(c) {
 }
 
 function render() {
+  Alerts.show(state.raw, state.discoveryRaw);
   const holdingsTab = state.tab === "holdings";
   document.getElementById("holdings").hidden = !holdingsTab;
   document.querySelector(".toolbar").hidden = holdingsTab;
@@ -165,6 +166,7 @@ function applyData(data, discovery) {
   if (discovery === undefined) {
     state.data.discover = sample || [];
   } else {
+    state.discoveryRaw = discovery;
     state.pool = discovery ? discovery.candidates : [];
     shuffleSample();
     const r = discovery && discovery.rules;
@@ -515,6 +517,12 @@ Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => nu
   .then(([data, discovery]) => {
     bindEvents();
     const { open } = applyData(data, discovery);
+    // Links from the BUY/SELL alert: companies.html?tab=watchlist&q=NFLX
+    const params = new URLSearchParams(location.search);
+    if (params.get("tab") in INTRO) {
+      setTab(params.get("tab"), params.get("q") || "");
+      document.querySelector(params.get("tab") === "holdings" ? "#holdings-list details" : "#list details")?.setAttribute("open", "");
+    }
     if (open.length) {
       setStatus(`Still updating ${open.map((p) => p.ticker).join(", ")}. This page refreshes by itself when the results are ready.`);
       waitForRescore();
