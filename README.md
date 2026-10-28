@@ -61,6 +61,11 @@ It covers two lists:
   **Holdings are stored only in your browser and never written to this public repository**; use Export/Import to move
   them between devices. Unscored tickers can be added to the watchlist (only the ticker becomes public).
 
+**BUY / SELL alert:** when you open either page, a banner lists **BUY** (green) for any company marked a buy
+candidate (passes the business checks and trades below its buy-below price) and **SELL** (red) for any of your holdings
+whose business no longer passes the checklist, or that trades above twice its estimated value at 40+ times earnings.
+Each item links to the company. "Dismiss" hides it until the set of signals changes.
+
 All thresholds are in `scripts/value_rules.py`. Optionally add a repository secret `SEC_USER_AGENT` set to
 `Your Name your@email`, which the SEC asks automated tools to send.
 

@@ -520,8 +520,14 @@ Promise.all([getJSON("companies.json"), getJSON("discovery.json").catch(() => nu
     // Links from the BUY/SELL alert: companies.html?tab=watchlist&q=NFLX
     const params = new URLSearchParams(location.search);
     if (params.get("tab") in INTRO) {
-      setTab(params.get("tab"), params.get("q") || "");
-      document.querySelector(params.get("tab") === "holdings" ? "#holdings-list details" : "#list details")?.setAttribute("open", "");
+      const ticker = (params.get("q") || "").toUpperCase();
+      setTab(params.get("tab"), params.get("tab") === "holdings" ? "" : ticker);
+      const match = [...document.querySelectorAll("#list details, #holdings-list details")]
+        .find((d) => !d.closest("[hidden]") && d.querySelector(".ticker")?.textContent === ticker);
+      if (match) {
+        match.open = true;
+        match.scrollIntoView({ block: "start" });
+      }
     }
     if (open.length) {
       setStatus(`Still updating ${open.map((p) => p.ticker).join(", ")}. This page refreshes by itself when the results are ready.`);
