@@ -18,6 +18,8 @@ const GitHubWatchlist = (() => {
   async function api(path, options = {}) {
     const res = await fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, {
       ...options,
+      // GitHub lets browsers reuse API replies for 60 seconds; a stale copy of the file would make the save fail.
+      cache: "no-store",
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token.get()}`,
@@ -30,6 +32,7 @@ const GitHubWatchlist = (() => {
       try { detail = (await res.json()).message || detail; } catch { /* not JSON */ }
       const err = new Error(
         res.status === 401 ? "GitHub rejected the token. It may have expired; disconnect and connect a new one."
+          : res.status === 409 ? "The watchlist kept changing while saving (another edit in progress?). Wait a moment and try again."
           : res.status === 403 || res.status === 404
             ? `The token doesn't have access (${detail}). It needs Contents and Actions read & write on ${repo}.`
             : `GitHub error ${res.status}: ${detail}`);
@@ -54,13 +57,21 @@ const GitHubWatchlist = (() => {
 
   /** Apply `change` to watchlist.txt, commit it, then start a watchlist-only rescore. False if nothing changed. */
   async function editList(change, message) {
-    const { text, sha } = await readList();
-    const next = change(text);
-    if (next === text) return false;
-    await api(`/contents/${FILE}`, {
-      method: "PUT",
-      body: JSON.stringify({ message, content: encode(next), sha, branch: BRANCH }),
-    });
+    for (let attempt = 1; ; attempt++) {
+      const { text, sha } = await readList();
+      const next = change(text);
+      if (next === text) return false;
+      try {
+        await api(`/contents/${FILE}`, {
+          method: "PUT",
+          body: JSON.stringify({ message, content: encode(next), sha, branch: BRANCH }),
+        });
+        break;
+      } catch (err) {
+        // 409: the file changed since it was read (another edit or device). Re-read it and apply the change again.
+        if (err.status !== 409 || attempt >= 3) throw err;
+      }
+    }
     await api(`/actions/workflows/${WORKFLOW}/dispatches`, {
       method: "POST",
       body: JSON.stringify({ ref: BRANCH, inputs: { watchlist_only: "true" } }),
