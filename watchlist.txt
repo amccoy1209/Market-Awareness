@@ -28,3 +28,4 @@ ADP     # Automatic Data Processing
 SPGI    # S&P Global
 ORLY    # O'Reilly Automotive
 AZO     # AutoZone
+INTU    # added from the app 2026-10-28
