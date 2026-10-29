@@ -1,8 +1,14 @@
 name: Update market data
 
 on:
+  # GitHub schedules in UTC only, so Eastern times shift an hour with daylight saving, and scheduled runs can
+  # start 5-30 minutes late (hence :07 and :17 rather than on the hour).
   schedule:
-    # Daily at 22:17 UTC, after most US data releases and the market close
+    # Weekdays at midday: 12:07 PM ET in summer, 11:07 AM ET in winter. The 8:30 and 10:00 AM releases are on FRED
+    # by then, leaving hours before the 4 PM close. Light run: market signals, watchlist, BUY/SELL and news checks.
+    - cron: "7 16 * * 1-5"
+    # Daily after the close: 6:17 PM ET in summer, 5:17 PM ET in winter. Full run with closing prices, the day's
+    # Treasury yields and the Friday H.8 report, plus the IPO search and the Discover scan.
     - cron: "17 22 * * *"
   workflow_dispatch: # lets you run it manually from the Actions tab (the app also starts it after watchlist edits)
     inputs:
@@ -47,7 +53,8 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
-        run: python scripts/fetch_companies.py ${{ inputs.watchlist_only && '--watchlist-only' || '' }}
+        # Light mode for the midday run, or when the app/Run workflow asks for watchlist only.
+        run: python scripts/fetch_companies.py ${{ (inputs.watchlist_only || github.event.schedule == '7 16 * * 1-5') && '--watchlist-only' || '' }}
 
       - name: Commit updated data
         run: |

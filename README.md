@@ -87,6 +87,14 @@ All thresholds are in `scripts/value_rules.py`. Optionally add a repository secr
    branch `main` and folder `/docs`.
 4. **Load data now:** **Actions → Update market data → Run workflow.** After that it runs automatically every day.
 
+**Update schedule** (GitHub uses UTC, so Eastern times shift an hour with daylight saving; runs can start 5–30
+minutes late):
+- **Weekdays at midday:** 12:07 PM ET in summer, 11:07 AM ET in winter. This catches the 8:30 and 10:00 AM data
+  releases with hours to spare before the 4 PM close. It's a light run: market signals, watchlist, BUY/SELL alerts and
+  news checks.
+- **Every day after the close:** 6:17 PM ET in summer, 5:17 PM ET in winter. A full run with closing prices, the
+  day's Treasury yields and Friday's H.8 bank data, plus the IPO search and the Discover scan.
+
 Your dashboard will be at `https://<your-username>.github.io/market-awareness/`.
 
 ## Run it on your computer
