@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-31T01:37:19+00:00",
+ "generated_at": "2026-11-01T01:13:15+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -404,7 +404,7 @@
      "as_of": "2026-10-29",
      "stale": false,
      "last_updated": "2026-10-30 09:21:41-05",
-     "next_release": "2026-10-31",
+     "next_release": "2026-11-02",
      "release_name": "ICE BofA Indices",
      "thresholds": "Yellow at 4.5 or higher, red at 6 or higher",
      "why": "Extra yield investors demand to hold junk bonds over Treasuries. Sharp widening signals lenders pulling back from riskier borrowers.",
@@ -908,7 +908,7 @@
      "as_of": "2026-10-29",
      "stale": false,
      "last_updated": "2026-10-30 09:16:33-05",
-     "next_release": "2026-10-31",
+     "next_release": "2026-11-02",
      "release_name": "ICE BofA Indices",
      "thresholds": "Yellow at 1.3 or higher, red at 2 or higher",
      "why": "Extra yield on high-quality corporate bonds. Widening here means stress is spreading beyond the weakest borrowers.",
@@ -3411,10 +3411,6 @@
      "source_url": "https://fred.stlouisfed.org/series/SAHMREALTIME",
      "history": [
       [
-       "2020-10-01",
-       4.2
-      ],
-      [
        "2020-11-01",
        3.63
       ],
@@ -3718,10 +3714,6 @@
      "why": "Average monthly change in nonfarm payrolls over the last three months.",
      "source_url": "https://fred.stlouisfed.org/series/PAYEMS",
      "history": [
-      [
-       "2020-10-01",
-       142460.0
-      ],
       [
        "2020-11-01",
        142733.0
@@ -4031,10 +4023,6 @@
      "source_url": "https://fred.stlouisfed.org/series/DSPIC96",
      "history": [
       [
-       "2020-10-01",
-       16573.6
-      ],
-      [
        "2020-11-01",
        16381.8
       ],
@@ -4342,10 +4330,6 @@
      "why": "Inflation-adjusted consumer spending growth. Cutbacks confirm debt stress is biting.",
      "source_url": "https://fred.stlouisfed.org/series/PCEC96",
      "history": [
-      [
-       "2020-10-01",
-       14007.1
-      ],
       [
        "2020-11-01",
        13970.3
@@ -5141,15 +5125,6 @@
  ],
  "calendar": [
   {
-   "date": "2026-10-31",
-   "release": "ICE BofA Indices",
-   "link": "https://www.theice.com/market-data/indices",
-   "indicators": [
-    "High-yield bond spread",
-    "Investment-grade bond spread"
-   ]
-  },
-  {
    "date": "2026-11-02",
    "release": "ICE BofA Indices",
    "link": "https://www.theice.com/market-data/indices",
@@ -5337,6 +5312,15 @@
   },
   {
    "date": "2026-11-13",
+   "release": "ICE BofA Indices",
+   "link": "https://www.theice.com/market-data/indices",
+   "indicators": [
+    "High-yield bond spread",
+    "Investment-grade bond spread"
+   ]
+  },
+  {
+   "date": "2026-11-13",
    "release": "H.8 Assets and Liabilities of Commercial Banks in the United States",
    "link": "http://www.federalreserve.gov/releases/h8/",
    "indicators": [
@@ -5451,6 +5435,14 @@
    "indicators": [
     "Bank loan growth (1-yr)",
     "Bank loan growth minus nominal GDP growth"
+   ]
+  },
+  {
+   "date": "2026-12-16",
+   "release": "Chicago Fed National Financial Conditions Index",
+   "link": "https://www.chicagofed.org/publications/nfci/index",
+   "indicators": [
+    "Chicago Fed financial conditions"
    ]
   }
  ],
