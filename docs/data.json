@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-07T01:58:03+00:00",
+ "generated_at": "2026-11-08T01:28:03+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -5435,6 +5435,23 @@
    "indicators": [
     "Bank loan growth (1-yr)",
     "Bank loan growth minus nominal GDP growth"
+   ]
+  },
+  {
+   "date": "2026-12-23",
+   "release": "Chicago Fed National Financial Conditions Index",
+   "link": "https://www.chicagofed.org/publications/nfci/index",
+   "indicators": [
+    "Chicago Fed financial conditions"
+   ]
+  },
+  {
+   "date": "2026-12-23",
+   "release": "Personal Income and Outlays",
+   "link": "https://www.bea.gov/data/income-saving/personal-income",
+   "indicators": [
+    "Real disposable income (1-yr)",
+    "Real consumer spending (1-yr)"
    ]
   }
  ],
