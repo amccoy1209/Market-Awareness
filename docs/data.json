@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-08T01:28:03+00:00",
+ "generated_at": "2026-11-09T01:45:02+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -5452,6 +5452,15 @@
    "indicators": [
     "Real disposable income (1-yr)",
     "Real consumer spending (1-yr)"
+   ]
+  },
+  {
+   "date": "2026-12-24",
+   "release": "H.8 Assets and Liabilities of Commercial Banks in the United States",
+   "link": "http://www.federalreserve.gov/releases/h8/",
+   "indicators": [
+    "Bank loan growth (1-yr)",
+    "Bank loan growth minus nominal GDP growth"
    ]
   }
  ],
