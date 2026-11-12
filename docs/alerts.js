@@ -3,7 +3,10 @@
 // Holdings come from this browser only (see holdings.js).
 
 const Alerts = (() => {
-  const DISMISSED_KEY = "market-awareness-dismissed-alerts";
+  // Dismissed notices, by "buy:TICKER" / "sell:TICKER". A dismissal lasts while that signal does: once the signal
+  // goes away it's forgotten, so the notice shows again if the signal comes back.
+  const DISMISSED_KEY = "market-awareness-dismissed-signals";
+  const OLD_KEY = "market-awareness-dismissed-alerts";  // whole-banner dismissal from the first version
   const TAB_FOR = { watchlist: "watchlist", ipo: "ipos", discovery: "discover" };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => (
@@ -53,39 +56,64 @@ const Alerts = (() => {
     return { level: "ok", text: `News check: no warning signs in recent SEC filings or the price trend${headlines ? `; ${headlines} recent headlines to skim` : ""}.` };
   }
 
-  const signature = (list) => list.map((s) => `${s.type}:${s.ticker}`).sort().join(",");
+  const keyOf = (s) => `${s.type}:${s.ticker}`;
 
-  function dismissed() {
-    try { return localStorage.getItem(DISMISSED_KEY); } catch { return null; }
+  function loadDismissed() {
+    try {
+      localStorage.removeItem(OLD_KEY);
+      const saved = JSON.parse(localStorage.getItem(DISMISSED_KEY));
+      return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    } catch {
+      return {};
+    }
   }
 
-  /** Render the alert into #alerts, unless there's nothing to show or this exact set was dismissed. */
+  function saveDismissed(map) {
+    try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(map)); } catch { /* storage blocked */ }
+  }
+
+  /** Render the notices that haven't been dismissed into #alerts. */
   function show(companies, discovery) {
     const el = document.getElementById("alerts");
     if (!el) return;
     const list = signals(companies, discovery);
-    if (!list.length || dismissed() === signature(list)) {
+    const current = new Set(list.map(keyOf));
+    const dismissed = loadDismissed();
+    for (const key of Object.keys(dismissed)) if (!current.has(key)) delete dismissed[key];
+    saveDismissed(dismissed);
+
+    const visible = list.filter((s) => !dismissed[keyOf(s)]);
+    const hiddenCount = list.length - visible.length;
+    if (!list.length) {
       el.hidden = true;
       el.innerHTML = "";
       return;
     }
     el.hidden = false;
     el.innerHTML = `
-      <ul>${list.map((s) => `
+      ${visible.length ? `<ul>${visible.map((s) => `
         <li class="alert-item ${s.type}">
           <a href="companies.html?tab=${s.tab}&amp;q=${encodeURIComponent(s.ticker)}">
             <span class="alert-badge">${s.type === "buy" ? "BUY" : "SELL"}</span>
             <span><strong>${esc(s.ticker)}</strong> <span class="muted">${esc(s.name)}</span><br>${esc(s.text)}
               ${s.news ? `<span class="alert-news ${s.news.level}">${s.news.level === "ok" ? "✓" : "⚠"} ${esc(s.news.text)}</span>` : ""}</span>
           </a>
+          <button type="button" class="alert-dismiss" data-dismiss="${esc(keyOf(s))}"
+                  aria-label="Dismiss the ${s.type === "buy" ? "BUY" : "SELL"} notice for ${esc(s.ticker)}" title="Dismiss">✕</button>
         </li>`).join("")}
-      </ul>
-      <p class="small muted">Signals from the checklist formula, not financial advice.
-        <button type="button" class="linklike" id="dismiss-alerts">Dismiss until something changes</button></p>`;
-    document.getElementById("dismiss-alerts").addEventListener("click", () => {
-      try { localStorage.setItem(DISMISSED_KEY, signature(list)); } catch { /* storage blocked */ }
-      el.hidden = true;
-    });
+      </ul>` : ""}
+      <p class="small muted">${visible.length ? "Signals from the checklist formula, not financial advice." : ""}
+        ${visible.length > 1 ? `<button type="button" class="linklike" data-dismiss-all>Dismiss all</button>` : ""}
+        ${hiddenCount ? `<button type="button" class="linklike" data-restore>Show ${hiddenCount} dismissed notice${hiddenCount === 1 ? "" : "s"}</button>` : ""}</p>`;
+    el.onclick = (e) => {
+      const one = e.target.closest("[data-dismiss]");
+      if (one) dismissed[one.dataset.dismiss] = true;
+      else if (e.target.closest("[data-dismiss-all]")) visible.forEach((s) => { dismissed[keyOf(s)] = true; });
+      else if (e.target.closest("[data-restore]")) Object.keys(dismissed).forEach((k) => delete dismissed[k]);
+      else return;
+      saveDismissed(dismissed);
+      show(companies, discovery);
+    };
   }
 
   /** For pages that don't already load the company data. */

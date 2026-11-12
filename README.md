@@ -64,11 +64,15 @@ It covers two lists:
   Review your thesis), with notes on valuation, position size, US tax treatment of each lot and current alternatives.
   **Holdings are stored only in your browser and never written to this public repository**; use Export/Import to move
   them between devices. Unscored tickers can be added to the watchlist (only the ticker becomes public).
+  **Sell…** records a sale (shares, price, date): shares come from the oldest purchases first (FIFO, the IRS default),
+  and a Realized gains section shows each sale's gain or loss, split short-term (held a year or less) and long-term,
+  with totals for the year and an Undo. Sales are stored and exported with your holdings.
 
 **BUY / SELL alert:** when you open either page, a banner lists **BUY** (green) for any company marked a buy
 candidate (passes the business checks and trades below its buy-below price) and **SELL** (red) for any of your holdings
 whose business no longer passes the checklist, or that trades above twice its estimated value at 40+ times earnings.
-Each item links to the company. "Dismiss" hides it until the set of signals changes.
+Each item links to the company. Tap ✕ on a notice to dismiss just that one: it stays hidden while that signal
+lasts and comes back if the signal goes away and later returns. "Dismiss all" and "Show dismissed" are under the list.
 
 **News check for BUY candidates:** each update also records, for every buy candidate, how far it is below its 52-week
 high and its 6-month change, its SEC 8-K filings from the last 6 months (red flags: restatement, delisting notice,
