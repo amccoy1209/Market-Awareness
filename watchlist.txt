@@ -26,3 +26,4 @@ TSLA    # added from the app 2026-10-28
 BIOA    # added from the app 2026-10-28
 FDX     # added from the app 2026-10-30
 ET      # added from the app 2026-11-12
+DMLP    # added from the app 2026-11-13
