@@ -285,8 +285,14 @@ footer { padding: 8px 16px 40px; }
 /* BUY / SELL alert */
 .alerts { margin: 16px 0 4px; }
 .alerts ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.alert-item { position: relative; }
+.alert-dismiss {
+  position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 15px; line-height: 1; color: var(--muted); background: transparent; border: 1px solid transparent;
+}
+.alert-dismiss:hover, .alert-dismiss:focus-visible { color: var(--text); border-color: var(--border); background: var(--surface); }
 .alert-item a {
-  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 44px 12px 14px; border-radius: 12px;
   text-decoration: none; color: var(--text); border: 1px solid transparent;
 }
 .alert-item.buy a { background: var(--green-bg); border-color: var(--green); }
@@ -309,3 +315,10 @@ footer { padding: 8px 16px 40px; }
 .news ul.small { padding-left: 18px; margin: 6px 0; }
 .news .headlines li { margin: 4px 0; }
 .news details summary { cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 6px; }
+
+/* Recording a sale */
+.sell-form { border-top: 1px dashed var(--border); margin-top: 10px; padding-top: 6px; }
+.sell-form .lot-form { align-items: center; }
+.holdings-sales { margin-top: 18px; }
+.holdings-sales h3 { margin: 0 0 4px; font-size: 16px; }
+.holdings-sales .hist { max-width: 680px; }

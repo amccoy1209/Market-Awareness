@@ -249,11 +249,15 @@ function renderHoldings() {
   const cost = priced.reduce((s, p) => s + p.cost, 0);
   const gain = value - cost;
   const signed = (v) => `${v > 0 ? "+" : ""}${money(v)}`;
-  document.getElementById("holdings-summary").innerHTML = list.length ? `
+  const sales = Holdings.loadSales();
+  const year = new Date().getFullYear();
+  const realized = Holdings.realized(sales, year);
+  document.getElementById("holdings-summary").innerHTML = list.length || realized.count ? `
     <div><small>Market value</small><strong>${money(value)}</strong></div>
     <div><small>Cost</small><strong>${money(cost)}</strong></div>
     <div><small>Gain / loss</small><strong class="${gain >= 0 ? "gain" : "loss"}">${signed(gain)}${cost ? ` (${((gain / cost) * 100).toFixed(1)}%)` : ""}</strong></div>
     <div><small>Positions</small><strong>${list.length}</strong></div>
+    ${realized.count ? `<div><small>Realized in ${year}</small><strong class="${realized.total >= 0 ? "gain" : "loss"}">${signed(realized.total)}</strong></div>` : ""}
     ${priced.length < list.length ? `<p class="small muted">Value and gain leave out ${list.filter((p) => p.value == null).map((p) => esc(p.ticker)).join(", ")}, which ${list.length - priced.length === 1 ? "has" : "have"} no price yet.</p>` : ""}` : "";
 
   const connected = GitHubWatchlist.connected();
@@ -290,10 +294,71 @@ function renderHoldings() {
         <table class="hist"><caption>Your lots${p.price != null ? ` · latest price ${money(p.price)}` : ""}</caption>
           <thead><tr><th>Bought</th><th>Shares</th><th>Paid</th><th>Gain</th><th></th></tr></thead>
           <tbody>${lots}</tbody></table>
-        <div class="lot-actions">${action}</div>
+        <div class="lot-actions">
+          <button class="remove" data-sell-open="${esc(p.ticker)}">Sell…</button>
+          ${action}
+        </div>
+        <form class="sell-form" data-ticker="${esc(p.ticker)}" hidden>
+          <p class="small"><strong>Record a sale of ${esc(p.ticker)}</strong> (you hold ${p.shares.toLocaleString()} shares).
+            Shares come from your oldest purchases first, the IRS default.</p>
+          <div class="lot-form">
+            <input name="shares" type="number" step="any" min="0" max="${p.shares}" placeholder="Shares (all ${p.shares.toLocaleString()})" aria-label="Shares sold">
+            <input name="price" type="number" step="any" min="0" value="${p.price ?? ""}" placeholder="Sale price per share" aria-label="Sale price per share" required>
+            <input name="date" type="date" value="${today()}" aria-label="Date sold" required>
+            <button type="submit">Record sale</button>
+            <button type="button" class="linklike" data-sell-cancel>Cancel</button>
+          </div>
+        </form>
       </div>
     </details>`;
   }).join("") : `<p class="muted">No holdings yet. Add a position above: ticker, number of shares and the price you paid per share.</p>`;
+
+  const termLabel = { short: "Short-term", long: "Long-term", unknown: "Unknown term" };
+  const terms = (sale) => [...new Set(sale.parts.map((p) => termLabel[p.term]))].join(" + ");
+  document.getElementById("holdings-sales").innerHTML = sales.length ? `
+    <h3>Realized gains and losses</h3>
+    <p class="small">${year}: <strong class="${realized.total >= 0 ? "gain" : "loss"}">${signed(realized.total)}</strong>
+      · short-term ${signed(realized.short)} · long-term ${signed(realized.long)}${realized.unknown ? ` · unknown term ${signed(realized.unknown)} (purchases without a date)` : ""}</p>
+    <table class="hist"><thead><tr><th>Sold</th><th>Ticker</th><th>Shares</th><th>Price</th><th>Gain</th><th>Term</th><th></th></tr></thead>
+      <tbody>${sales.slice().sort((a, b) => b.date.localeCompare(a.date)).map((sale) => `
+        <tr><td>${esc(sale.date)}</td><td>${esc(sale.ticker)}</td><td>${sale.shares.toLocaleString()}</td><td>${money(sale.price)}</td>
+          <td class="${sale.gain >= 0 ? "gain" : "loss"}">${signed(sale.gain)}</td><td>${esc(terms(sale))}</td>
+          <td><button class="linklike" data-undo-sale="${esc(sale.id)}">Undo</button></td></tr>`).join("")}
+      </tbody></table>
+    <p class="small muted">Short-term means held a year or less. US tax rules decide how these are taxed; check with a tax professional.</p>` : "";
+}
+
+/** Today's date in this browser's time zone, as YYYY-MM-DD. */
+function today() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function recordSale(form) {
+  const ticker = form.dataset.ticker;
+  const held = Holdings.load().filter((l) => l.ticker === ticker).reduce((sum, l) => sum + l.shares, 0);
+  const shares = form.elements.shares.value.trim() === "" ? held : parseFloat(form.elements.shares.value);
+  const price = parseFloat(form.elements.price.value);
+  const date = form.elements.date.value;
+  const { lots, sale, error } = Holdings.sell(Holdings.load(), ticker, shares, price, date);
+  if (error) return setHoldingsStatus(error, "err");
+  const { money } = Holdings;
+  const gainText = `${sale.gain >= 0 ? "a gain of" : "a loss of"} ${money(Math.abs(sale.gain))}`;
+  if (!confirm(`Record selling ${shares.toLocaleString()} ${ticker} at ${money(price)} on ${date}? That's ${gainText}.`)) return;
+  if (!Holdings.save(lots) || !Holdings.saveSales([...Holdings.loadSales(), sale])) {
+    return setHoldingsStatus("This browser is blocking storage, so the sale can't be saved here.", "err");
+  }
+  setHoldingsStatus(`Recorded: sold ${shares.toLocaleString()} ${ticker} at ${money(price)}, ${gainText}. Undo it under Realized gains if needed.`, "ok");
+  render();
+}
+
+function undoSale(id) {
+  const sale = Holdings.loadSales().find((s) => s.id === id);
+  if (!sale || !confirm(`Undo the sale of ${sale.shares.toLocaleString()} ${sale.ticker} on ${sale.date}? The shares go back into your holdings.`)) return;
+  Holdings.save(Holdings.undoSale(Holdings.load(), sale));
+  Holdings.saveSales(Holdings.loadSales().filter((s) => s.id !== id));
+  setHoldingsStatus(`Undid the ${sale.ticker} sale.`, "ok");
+  render();
 }
 
 function addLot() {
@@ -315,7 +380,8 @@ function addLot() {
 }
 
 function exportHoldings() {
-  const blob = new Blob([JSON.stringify(Holdings.load(), null, 1)], { type: "application/json" });
+  const data = { version: 2, lots: Holdings.load(), sales: Holdings.loadSales() };
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "market-awareness-holdings.json";
@@ -325,14 +391,18 @@ function exportHoldings() {
 
 async function importHoldings(file) {
   try {
-    const lots = JSON.parse(await file.text());
+    const parsed = JSON.parse(await file.text());
+    const lots = Array.isArray(parsed) ? parsed : parsed && parsed.lots;  // the first version exported lots only
+    const sales = !Array.isArray(parsed) && Array.isArray(parsed.sales) ? parsed.sales.filter(Holdings.validSale) : null;
     if (!Array.isArray(lots)) throw new Error();
     const good = lots.filter(Holdings.valid).map((l) => ({ id: String(l.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
       ticker: l.ticker, shares: l.shares, price: l.price, date: l.date || null }));
-    if (!good.length) throw new Error();
-    if (Holdings.load().length && !confirm(`Replace your current holdings with the ${good.length} lot(s) in this file?`)) return;
+    if (!good.length && !(sales && sales.length)) throw new Error();
+    const what = `${good.length} lot(s)${sales ? ` and ${sales.length} recorded sale(s)` : ""}`;
+    if ((Holdings.load().length || Holdings.loadSales().length) && !confirm(`Replace your current holdings with the ${what} in this file?`)) return;
     Holdings.save(good);
-    setHoldingsStatus(`Imported ${good.length} lot(s)${good.length < lots.length ? `; skipped ${lots.length - good.length} invalid` : ""}.`, "ok");
+    if (sales) Holdings.saveSales(sales);
+    setHoldingsStatus(`Imported ${what}${good.length < lots.length ? `; skipped ${lots.length - good.length} invalid lot(s)` : ""}.`, "ok");
     render();
   } catch {
     setHoldingsStatus("That file isn't a holdings export from this app.", "err");
@@ -479,7 +549,15 @@ function bindEvents() {
     const del = e.target.closest("button[data-del-lot]");
     const view = e.target.closest("button[data-view]");
     const score = e.target.closest("button[data-score]");
-    if (del && confirm("Delete this lot from your holdings?")) {
+    const sellOpen = e.target.closest("button[data-sell-open]");
+    const sellCancel = e.target.closest("button[data-sell-cancel]");
+    if (sellOpen || sellCancel) {
+      const form = (sellOpen || sellCancel).closest(".company-body").querySelector(".sell-form");
+      form.hidden = Boolean(sellCancel);
+      if (sellOpen) form.elements.shares.focus();
+      return;
+    }
+    if (del && confirm("Delete this lot from your holdings? (To record selling it instead, use Sell.)")) {
       Holdings.save(Holdings.load().filter((l) => l.id !== del.dataset.delLot));
       render();
     } else if (view) {
@@ -492,6 +570,15 @@ function bindEvents() {
       setHoldingsStatus(msg.textContent, msg.className.includes("err") ? "err" : "ok");
       render();
     }
+  });
+  document.getElementById("holdings-list").addEventListener("submit", (e) => {
+    if (!e.target.matches(".sell-form")) return;
+    e.preventDefault();
+    recordSale(e.target);
+  });
+  document.getElementById("holdings-sales").addEventListener("click", (e) => {
+    const undo = e.target.closest("button[data-undo-sale]");
+    if (undo) undoSale(undo.dataset.undoSale);
   });
   document.getElementById("filters").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-filter]");
