@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-14T02:27:50+00:00",
+ "generated_at": "2026-11-15T01:57:08+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -5444,6 +5444,14 @@
    "indicators": [
     "Bank loan growth (1-yr)",
     "Bank loan growth minus nominal GDP growth"
+   ]
+  },
+  {
+   "date": "2026-12-30",
+   "release": "Chicago Fed National Financial Conditions Index",
+   "link": "https://www.chicagofed.org/publications/nfci/index",
+   "indicators": [
+    "Chicago Fed financial conditions"
    ]
   }
  ],
