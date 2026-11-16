@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-15T01:57:08+00:00",
+ "generated_at": "2026-11-16T02:11:39+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -5452,6 +5452,15 @@
    "link": "https://www.chicagofed.org/publications/nfci/index",
    "indicators": [
     "Chicago Fed financial conditions"
+   ]
+  },
+  {
+   "date": "2026-12-31",
+   "release": "H.8 Assets and Liabilities of Commercial Banks in the United States",
+   "link": "http://www.federalreserve.gov/releases/h8/",
+   "indicators": [
+    "Bank loan growth (1-yr)",
+    "Bank loan growth minus nominal GDP growth"
    ]
   }
  ],
