@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-26T04:10:31+00:00",
+ "generated_at": "2026-11-27T00:30:24+00:00",
  "verdict": {
   "level": "clear",
   "status": "green",
@@ -412,7 +412,7 @@
      "as_of": "2026-11-24",
      "stale": false,
      "last_updated": "2026-11-25 09:13:53-06",
-     "next_release": "2026-11-26",
+     "next_release": "2026-11-27",
      "release_name": "ICE BofA Indices",
      "thresholds": "Yellow at 4.5 or higher, red at 6 or higher",
      "why": "Extra yield investors demand to hold junk bonds over Treasuries. Sharp widening signals lenders pulling back from riskier borrowers.",
@@ -916,7 +916,7 @@
      "as_of": "2026-11-24",
      "stale": false,
      "last_updated": "2026-11-25 09:13:33-06",
-     "next_release": "2026-11-26",
+     "next_release": "2026-11-27",
      "release_name": "ICE BofA Indices",
      "thresholds": "Yellow at 1.3 or higher, red at 2 or higher",
      "why": "Extra yield on high-quality corporate bonds. Widening here means stress is spreading beyond the weakest borrowers.",
@@ -5153,15 +5153,6 @@
  ],
  "calendar": [
   {
-   "date": "2026-11-26",
-   "release": "ICE BofA Indices",
-   "link": "https://www.theice.com/market-data/indices",
-   "indicators": [
-    "High-yield bond spread",
-    "Investment-grade bond spread"
-   ]
-  },
-  {
    "date": "2026-11-27",
    "release": "ICE BofA Indices",
    "link": "https://www.theice.com/market-data/indices",
@@ -5370,6 +5361,15 @@
    "link": null,
    "indicators": [
     "Yield curve (10-yr minus 3-month)"
+   ]
+  },
+  {
+   "date": "2026-12-10",
+   "release": "ICE BofA Indices",
+   "link": "https://www.theice.com/market-data/indices",
+   "indicators": [
+    "High-yield bond spread",
+    "Investment-grade bond spread"
    ]
   },
   {
